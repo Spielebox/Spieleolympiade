@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f1226">
+<title>Spieleolympiade</title>
+<style>
+:root{
+  --bg:#0f1226; --bg2:#171b3a; --card:#1d2250; --line:#2e3570;
+  --gold:#f5c542; --gold2:#ffdf7a; --text:#f2f4ff; --muted:#9aa3d6;
+  --danger:#ff6b6b; --ok:#5fd68a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100vh;background:radial-gradient(1200px 600px at 50% -200px,#2a2f7a 0%,var(--bg) 60%) no-repeat,var(--bg)}
+#app{max-width:760px;margin:0 auto;padding:16px 14px 80px}
+h1,h2,h3{margin:0}
+.hero{text-align:center;padding:22px 0 8px}
+.hero .medal{font-size:54px;line-height:1;filter:drop-shadow(0 4px 12px rgba(245,197,66,.5))}
+.hero h1{font-size:28px;margin-top:8px;background:linear-gradient(90deg,var(--gold2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.5px}
+.hero p{color:var(--muted);margin:6px 0 0;font-size:15px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:12px 0}
+.card h2{font-size:17px;margin-bottom:8px;color:var(--gold2)}
+.card h3{font-size:15px;margin:10px 0 4px}
+.muted{color:var(--muted);font-size:14px}
+.row{display:flex;gap:10px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+button,.btn{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:11px 16px;font-weight:600;color:#1a1500;background:linear-gradient(180deg,var(--gold2),var(--gold));box-shadow:0 2px 0 #b8901c;text-decoration:none;display:inline-block;text-align:center}
+button:active{transform:translateY(1px)}
+button.sec{background:var(--bg2);color:var(--text);border:1px solid var(--line);box-shadow:none}
+button.danger{background:transparent;color:var(--danger);border:1px solid var(--danger);box-shadow:none}
+button.icon{padding:8px 12px;background:transparent;color:var(--danger);box-shadow:none;font-size:18px}
+button:disabled{opacity:.45;cursor:not-allowed}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,textarea{width:100%;font:inherit;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;outline:none}
+input:focus,textarea:focus{border-color:var(--gold)}
+textarea{min-height:120px;resize:vertical;line-height:1.45}
+textarea.big{min-height:380px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:430px){.grid2{grid-template-columns:1fr}}
+.olycard{display:block;text-decoration:none;color:inherit}
+.olycard .t{font-weight:700;font-size:17px}
+.olycard .m{color:var(--muted);font-size:14px;margin-top:4px}
+.badge{display:inline-block;font-size:12px;padding:3px 9px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);color:var(--gold2);margin-left:6px;vertical-align:middle}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin:10px 0;padding-bottom:4px}
+.tabs a{flex:1 0 auto;text-align:center;text-decoration:none;color:var(--muted);padding:10px 14px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);font-weight:600;font-size:14px;white-space:nowrap}
+.tabs a.on{color:#1a1500;background:linear-gradient(180deg,var(--gold2),var(--gold));border-color:var(--gold)}
+.back{color:var(--muted);text-decoration:none;font-size:14px;display:inline-block;padding:6px 0}
+.plist{list-style:none;margin:8px 0 0;padding:0}
+.plist li{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line)}
+.plist li:last-child{border-bottom:0}
+.num{width:28px;height:28px;border-radius:50%;background:var(--bg2);border:1px solid var(--line);display:grid;place-items:center;font-size:13px;color:var(--gold2);flex:none}
+.warn{color:#ffb86b;font-size:14px;margin-top:8px}
+.ok{color:var(--ok);font-size:14px;margin-top:8px}
+.points{display:flex;gap:8px;margin:8px 0}
+.points div{flex:1;text-align:center;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 4px}
+.points b{display:block;font-size:22px;color:var(--gold2)}
+ul.rules{margin:6px 0 0;padding-left:20px;line-height:1.55}
+ul.rules li{margin:4px 0}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:#000c;border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:12px;transition:transform .25s;z-index:10;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+.empty{text-align:center;color:var(--muted);padding:26px 10px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+
+<script>
+/* ============ Speicher-Schicht ============
+   Später austauschbar gegen einen Server (Cloudflare Worker). */
+const Store = {
+  KEY: 'spieleolympiade.v1',
+  load() {
+    try {
+      const d = JSON.parse(localStorage.getItem(this.KEY));
+      if (d && Array.isArray(d.olympiads)) return d;
+    } catch (e) {}
+    return { version: 1, olympiads: [] };
+  },
+  save(d) {
+    try { localStorage.setItem(this.KEY, JSON.stringify(d)); }
+    catch (e) { toast('Speichern fehlgeschlagen (Speicher voll oder gesperrt)'); }
+  }
+};
+
+let db = Store.load();
+const save = () => Store.save(db);
+const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = id => document.getElementById(id);
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function newOlympiad() {
+  return {
+    id: uid(),
+    name: 'Spieleolympiade ' + new Date().getFullYear(),
+    date: '', time: '', place: '', president: '', notes: '',
+    participants: [],   // {id, name, gameTitle, gameNote}  (gameTitle: ab Schritt 2)
+    games: [],          // ab Schritt 2/3: Reihenfolge, Platzierungen
+    invite: '', inviteCustom: false,
+    status: 'prep',     // prep | running | finished
+    createdAt: Date.now()
+  };
+}
+
+/* ============ Routing ============ */
+function route() {
+  const h = location.hash.replace(/^#\/?/, '').split('/');
+  if (h[0] === 'o' && h[1]) {
+    const o = db.olympiads.find(x => x.id === h[1]);
+    if (o) return { o, tab: h[2] || 'details' };
+  }
+  return { o: null };
+}
+const cur = () => route().o;
+
+function render() {
+  const r = route();
+  $('app').innerHTML = r.o ? viewOlympiad(r.o, r.tab) : viewHome();
+}
+window.addEventListener('hashchange', render);
+
+/* ============ Hilfsfunktionen ============ */
+function fmtDate(d) {
+  if (!d) return '';
+  const x = new Date(d + 'T00:00:00');
+  if (isNaN(x)) return d;
+  return x.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+function fmtShort(d) {
+  if (!d) return 'Termin offen';
+  const x = new Date(d + 'T00:00:00');
+  return isNaN(x) ? d : x.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function fmtDur(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  return (h ? h + ' Std ' : '') + (m ? m + ' Min' : (h ? '' : '0 Min'));
+}
+const statusLabel = s => ({ prep: 'Vorbereitung', running: 'Läuft', finished: 'Beendet' }[s] || s);
+
+/* ============ Ansichten ============ */
+function viewHome() {
+  const list = [...db.olympiads].sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.createdAt - a.createdAt);
+  return `
+  <div class="hero">
+    <div class="medal">🏅</div>
+    <h1>Spieleolympiade</h1>
+    <p>Jeder bringt ein Spiel mit. Einer gewinnt alles.</p>
+  </div>
+  <div class="card">
+    <button style="width:100%" onclick="createOly()">＋ Neue Olympiade planen</button>
+  </div>
+  ${list.length ? list.map(o => `
+    <a class="card olycard" href="#/o/${o.id}">
+      <div class="t">${esc(o.name || 'Ohne Namen')}<span class="badge">${statusLabel(o.status)}</span></div>
+      <div class="m">📅 ${esc(fmtShort(o.date))}${o.place ? ' · 📍 ' + esc(o.place) : ''}</div>
+      <div class="m">👥 ${o.participants.length} Teilnehmer</div>
+    </a>`).join('') : `<div class="empty">Noch keine Olympiade angelegt.<br>Leg oben die erste an!</div>`}
+  <div class="card">
+    <h2>Datensicherung</h2>
+    <p class="muted">Alle Daten liegen nur in diesem Browser. Exportiere sie regelmäßig oder wechsle damit das Gerät.</p>
+    <div class="row wrap">
+      <button class="sec grow" onclick="exportAll()">⬇ Exportieren</button>
+      <button class="sec grow" onclick="$('importFile').click()">⬆ Importieren</button>
+    </div>
+  </div>`;
+}
+
+function viewOlympiad(o, tab) {
+  const tabs = [['details', 'Details'], ['teilnehmer', 'Teilnehmer'], ['einladung', 'Einladung'], ['regeln', 'Regeln']];
+  const body = { details: tabDetails, teilnehmer: tabTeilnehmer, einladung: tabEinladung, regeln: tabRegeln }[tab] || tabDetails;
+  return `
+  <a class="back" href="#/">‹ Alle Olympiaden</a>
+  <div class="row"><h2 class="grow" style="font-size:22px">🏅 ${esc(o.name || 'Ohne Namen')}</h2><span class="badge">${statusLabel(o.status)}</span></div>
+  <div class="tabs">${tabs.map(([k, l]) => `<a class="${k === tab ? 'on' : ''}" href="#/o/${o.id}/${k}">${l}</a>`).join('')}</div>
+  ${body(o)}`;
+}
+
+function tabDetails(o) {
+  return `
+  <div class="card">
+    <h2>Eckdaten</h2>
+    <label>Name der Olympiade</label>
+    <input value="${esc(o.name)}" oninput="setField('name',this.value)" placeholder="z. B. Spieleolympiade Winter 2026">
+    <div class="grid2">
+      <div><label>Datum</label><input type="date" value="${esc(o.date)}" oninput="setField('date',this.value)"></div>
+      <div><label>Beginn</label><input type="time" value="${esc(o.time)}" oninput="setField('time',this.value)"></div>
+    </div>
+    <label>Austragungsort</label>
+    <input value="${esc(o.place)}" oninput="setField('place',this.value)" placeholder="Adresse oder Name des Ortes">
+    <label>Präsident (moderiert, kümmert sich um Urkunden &amp; Preise)</label>
+    <input value="${esc(o.president)}" oninput="setField('president',this.value)" placeholder="Name">
+    <label>Notizen / Hinweise für alle</label>
+    <textarea oninput="setField('notes',this.value)" placeholder="z. B. Parkplätze, Essen &amp; Trinken, Dresscode …">${esc(o.notes)}</textarea>
+  </div>
+  <div class="card">
+    <h2>Austragung</h2>
+    <p class="muted">Sobald alle Teilnehmer eingetragen sind, startet hier später die Olympiade mit geheimer Titeleingabe und Auslosung.</p>
+    <button disabled style="width:100%">▶ Austragung starten (folgt in Schritt 2)</button>
+  </div>
+  <div class="card">
+    <button class="danger" onclick="deleteOly()">Olympiade löschen</button>
+  </div>`;
+}
+
+function tabTeilnehmer(o) {
+  const n = o.participants.length;
+  const total = n * 15;
+  return `
+  <div class="card">
+    <h2>Teilnehmer</h2>
+    <p class="muted">Jeder Teilnehmer bringt genau ein Spiel mit und ist dabei Schiedsrichter.</p>
+    <div class="row">
+      <input id="pname" class="grow" placeholder="Name eintragen" onkeydown="if(event.key==='Enter')addParticipant()" autocomplete="off">
+      <button onclick="addParticipant()">Hinzufügen</button>
+    </div>
+    ${n ? `<ul class="plist">${o.participants.map((p, i) => `
+      <li><span class="num">${i + 1}</span><span class="grow">${esc(p.name)}</span>
+      <button class="icon" onclick="removeParticipant('${p.id}')" aria-label="Entfernen">✕</button></li>`).join('')}</ul>`
+      : `<div class="empty">Noch niemand eingetragen.</div>`}
+    ${n === 0 ? '' : n < 3
+      ? `<div class="warn">⚠ Mindestens 3 Teilnehmer nötig, damit es Platz 1–3 gibt (besser mehr).</div>`
+      : `<div class="ok">✓ ${n} Teilnehmer = ${n} Spiele · ca. ${fmtDur(total)} reine Spielzeit bei 15 Min je Spiel (plus Pausen &amp; Siegerehrung)</div>`}
+  </div>`;
+}
+
+function buildInvite(o) {
+  const L = [];
+  L.push(`🏅 Einladung zur ${o.name || 'Spieleolympiade'}`, '');
+  if (o.date) L.push(`📅 Wann: ${fmtDate(o.date)}${o.time ? ', Beginn ' + o.time + ' Uhr' : ''}`);
+  if (o.place) L.push(`📍 Wo: ${o.place}`);
+  if (o.president) L.push(`🎤 Präsident: ${o.president}`);
+  if (o.date || o.place || o.president) L.push('');
+  L.push('So funktioniert’s:',
+    '• Jeder Teilnehmer bereitet ein Spiel für alle anderen vor und ist dabei Schiedsrichter (er spielt bei seinem Spiel nicht mit). Er stellt das Spiel vor, erklärt es und führt es durch.',
+    '• Dauer pro Spiel: höchstens ca. 15 Minuten, inklusive Erklärung.',
+    '• Das Spiel muss eindeutig Platz 1, 2 und 3 liefern. Plant bei Bedarf ein Stechen ein.',
+    '• Erlaubt ist alles: Quiz, Geschicklichkeit, Schnelligkeit, Brett-, Karten- oder Würfelspiele oder Mischungen – selbst ausgedacht oder bekannt.',
+    '• Punkte pro Spiel: Platz 1 = 3 Punkte, Platz 2 = 2 Punkte, Platz 3 = 1 Punkt.',
+    '• Wer nach allen Spielen die meisten Punkte hat, gewinnt. Auch Gesamtplatz 2 und 3 werden geehrt.',
+    '• Euren Spieletitel tragt ihr vor Ort geheim in der App ein. Welches Spiel zuerst dran ist, entscheidet das Los!',
+    '',
+    'Bitte bringt alles mit, was ihr für euer Spiel braucht.');
+  if (o.participants.length) L.push('', '👥 Dabei sind: ' + o.participants.map(p => p.name).join(', '));
+  if (o.notes) L.push('', o.notes);
+  L.push('', 'Gebt bitte kurz Bescheid, ob ihr dabei seid. Wir freuen uns auf euch!');
+  return L.join('\n');
+}
+
+function tabEinladung(o) {
+  if (!o.inviteCustom) o.invite = buildInvite(o);
+  return `
+  <div class="card">
+    <h2>Einladungsentwurf</h2>
+    <p class="muted">Wird aus deinen Daten erzeugt. Du kannst den Text frei ändern – dann bleibt deine Fassung erhalten.</p>
+    <textarea class="big" id="invite" oninput="setInvite(this.value)">${esc(o.invite)}</textarea>
+    <div class="row wrap" style="margin-top:10px">
+      <button class="grow" onclick="copyInvite()">📋 Kopieren</button>
+      <button class="sec grow" onclick="shareInvite()">↗ Teilen</button>
+      <button class="sec grow" onclick="resetInvite()">↺ Neu aus Vorlage</button>
+    </div>
+  </div>`;
+}
+
+function tabRegeln() {
+  return `
+  <div class="card">
+    <h2>Punkte pro Spiel</h2>
+    <div class="points"><div><b>3</b>Platz 1</div><div><b>2</b>Platz 2</div><div><b>1</b>Platz 3</div></div>
+    <p class="muted">Wer nach allen Spielen die meisten Punkte hat, gewinnt. Gesamtplatz 2 und 3 werden ebenfalls prämiert.</p>
+  </div>
+  <div class="card">
+    <h2>Regeln für Spielvorbereiter</h2>
+    <ul class="rules">
+      <li>Jeder Teilnehmer bereitet <b>ein</b> Spiel vor und ist dabei <b>Schiedsrichter</b> – er spielt nicht mit.</li>
+      <li>Er stellt das Spiel vor, erklärt es und führt es durch.</li>
+      <li>Dauer: <b>maximal ca. 15 Minuten</b> je Spiel.</li>
+      <li>Es muss <b>eindeutig Platz 1–3</b> geben. Ggf. ein <b>Stechen</b> vorsehen.</li>
+      <li>Alles ist erlaubt: Quiz, Geschicklichkeit, Schnelligkeit, Brett-, Karten-, Würfelspiele, Mischungen; selbst ausgedacht oder bekannt.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Rollen</h2>
+    <ul class="rules">
+      <li><b>Präsident:</b> eröffnet die Olympiade, kümmert sich um Urkunden und Preise für die ersten drei Gesamtplätze und überreicht sie.</li>
+      <li><b>Schiedsrichter:</b> der Teilnehmer, dessen Spiel gerade läuft.</li>
+    </ul>
+  </div>`;
+}
+
+/* ============ Aktionen ============ */
+function createOly() {
+  const o = newOlympiad();
+  db.olympiads.push(o); save();
+  location.hash = '#/o/' + o.id;
+}
+function deleteOly() {
+  const o = cur(); if (!o) return;
+  if (!confirm(`„${o.name}“ wirklich löschen? Das kann nicht rückgängig gemacht werden.`)) return;
+  db.olympiads = db.olympiads.filter(x => x.id !== o.id); save();
+  location.hash = '#/';
+}
+function setField(k, v) {
+  const o = cur(); if (!o) return;
+  o[k] = v; save();
+}
+function addParticipant() {
+  const o = cur(), inp = $('pname'); if (!o || !inp) return;
+  const name = inp.value.trim();
+  if (!name) return;
+  if (o.participants.some(p => p.name.toLowerCase() === name.toLowerCase())) { toast('Diesen Namen gibt es schon'); return; }
+  o.participants.push({ id: uid(), name, gameTitle: '', gameNote: '' });
+  save(); render();
+  const again = $('pname'); if (again) again.focus();
+}
+function removeParticipant(id) {
+  const o = cur(); if (!o) return;
+  const p = o.participants.find(x => x.id === id);
+  if (!p || !confirm(`${p.name} entfernen?`)) return;
+  o.participants = o.participants.filter(x => x.id !== id);
+  save(); render();
+}
+function setInvite(v) { const o = cur(); if (!o) return; o.invite = v; o.inviteCustom = true; save(); }
+function resetInvite() {
+  const o = cur(); if (!o) return;
+  if (o.inviteCustom && !confirm('Deine Änderungen am Text gehen verloren. Fortfahren?')) return;
+  o.inviteCustom = false; save(); render(); toast('Text neu erzeugt');
+}
+async function copyInvite() {
+  const txt = $('invite').value;
+  try { await navigator.clipboard.writeText(txt); toast('In die Zwischenablage kopiert'); }
+  catch (e) { $('invite').select(); document.execCommand('copy'); toast('Kopiert'); }
+}
+async function shareInvite() {
+  const txt = $('invite').value;
+  if (navigator.share) { try { await navigator.share({ title: cur().name, text: txt }); } catch (e) {} }
+  else copyInvite();
+}
+
+/* ============ Export / Import ============ */
+function exportAll() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'spieleolympiade-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast('Backup erstellt');
+}
+$('importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || !Array.isArray(d.olympiads)) throw new Error('format');
+    const mode = db.olympiads.length
+      ? confirm('OK = mit vorhandenen Daten zusammenführen\nAbbrechen = zurück (nichts ändern)')
+      : true;
+    if (!mode) return;
+    const have = new Set(db.olympiads.map(o => o.id));
+    let added = 0;
+    d.olympiads.forEach(o => { if (o && o.id && !have.has(o.id)) { db.olympiads.push(o); added++; } });
+    save(); render(); toast(added + ' Olympiade(n) importiert');
+  } catch (err) { toast('Datei konnte nicht gelesen werden'); }
+});
+
+render();
+</script>
+</body>
+</html>
