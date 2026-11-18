@@ -70,25 +70,38 @@ ul.rules li{margin:4px 0}
 .empty{text-align:center;color:var(--muted);padding:26px 10px}
 
 /* ============ Intro ============ */
-#intro{position:fixed;inset:0;z-index:50;overflow:hidden;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
-#intro .ibg{position:absolute;inset:0;background:radial-gradient(900px 700px at 50% 42%,#2f3590 0%,#14183a 55%,#080a1a 100%)}
-#intro canvas{position:absolute;inset:0;width:100%;height:100%}
+#intro{position:fixed;inset:0;z-index:50;overflow:hidden;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;--cx:50%;--cy:42%;--b:0;--gl:0;--rl:0}
+#intro .ibg{position:absolute;inset:0;background:radial-gradient(900px 700px at 50% 42%,#2a3088 0%,#12163a 55%,#070918 100%)}
+#intro .iglow{position:absolute;left:var(--cx);top:var(--cy);width:130vmax;height:130vmax;margin:-65vmax 0 0 -65vmax;
+  background:radial-gradient(circle,rgba(245,197,66,.42) 0,rgba(245,197,66,.12) 16%,transparent 38%);
+  opacity:var(--gl);transform:scale(calc(.55 + var(--b)*.4))}
 #intro .rays{position:absolute;left:var(--cx);top:var(--cy);width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;
-  background:repeating-conic-gradient(from 0deg,rgba(245,197,66,.20) 0 6deg,transparent 6deg 18deg);
+  background:repeating-conic-gradient(from 0deg,rgba(245,197,66,.22) 0 6deg,transparent 6deg 18deg);
   -webkit-mask-image:radial-gradient(circle,#000 0,transparent 42%);mask-image:radial-gradient(circle,#000 0,transparent 42%);
-  opacity:0;animation:raysIn 1.6s ease-out .3s forwards,spin 40s linear infinite}
+  opacity:var(--rl);animation:spin 40s linear infinite}
+#intro canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #intro .ring{position:absolute;left:var(--cx);top:var(--cy);width:200px;height:200px;margin:-100px 0 0 -100px;border-radius:50%;
-  background:radial-gradient(circle,transparent 65%,rgba(245,197,66,.95) 67%,transparent 70%);opacity:0;animation:ring 1.5s ease-out .65s}
-#intro .ring.r2{background:radial-gradient(circle,transparent 66%,rgba(255,255,255,.85) 67.5%,transparent 69%);animation-delay:.85s}
+  background:radial-gradient(circle,transparent 65%,var(--rc,#f5c542) 67%,transparent 70%);opacity:0;animation:ring 1.6s ease-out forwards;pointer-events:none}
+#intro .flash{position:absolute;inset:0;z-index:4;pointer-events:none;background:radial-gradient(circle at var(--cx) var(--cy),#fff 0,rgba(255,240,190,.75) 28%,transparent 72%)}
 #intro .istage{position:relative;display:flex;flex-direction:column;align-items:center;gap:22px;padding:0 16px;margin-top:-4vh}
 #intro .ilogo{width:min(320px,74vw)}
-#intro .ilogo img{display:block;width:100%;height:auto;animation:logoIn 1.4s cubic-bezier(.2,.9,.3,1.1) .2s both}
+#intro .ipulse{position:relative;transform:scale(calc(1 + var(--b)*.03))}
+#intro .ipulse img{display:block;width:100%;height:auto;opacity:0}
+#intro .ipulse img.in{animation:logoIn 1.2s cubic-bezier(.2,.9,.3,1.1) both}
+#intro .ishine{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.9) 50%,transparent 58%);background-size:250% 100%;background-position:160% 0;background-repeat:no-repeat;
+  -webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 #intro .ititle{margin:0;font-size:clamp(30px,9.5vw,54px);letter-spacing:1px;text-align:center;color:var(--gold2);text-shadow:0 0 22px rgba(245,197,66,.55);white-space:nowrap}
-#intro .ititle span{display:inline-block;opacity:0;transform:translateY(26px);animation:rise .65s cubic-bezier(.2,.9,.3,1.2) forwards}
-#intro .ihint{position:absolute;left:0;right:0;bottom:calc(7vh + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:13px;letter-spacing:3px;text-transform:uppercase;
-  opacity:0;animation:hintIn .8s ease-out 2.8s both,pulse 2.2s ease-in-out 3.6s infinite}
+#intro .ititle span{display:inline-block;opacity:0;transform:translateY(26px)}
+#intro .ititle.go span{animation:rise .6s cubic-bezier(.2,.9,.3,1.2) forwards;animation-delay:calc(var(--i)*.055s)}
+#intro .ihint{position:absolute;left:0;right:0;bottom:calc(7vh + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:13px;letter-spacing:3px;text-transform:uppercase;opacity:0}
+#intro .ihint.show{animation:hintIn .8s ease-out both,pulse 2.4s ease-in-out .8s infinite}
+#intro .iveil{position:absolute;inset:0;background:#05061a;transition:opacity 1.4s ease-out}
+#intro .istart{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;transition:opacity .5s}
+#intro .orb{width:14px;height:14px;border-radius:50%;background:var(--gold2);box-shadow:0 0 30px 12px rgba(245,197,66,.55);animation:orb 2.2s ease-in-out infinite}
+#intro .istart .t{color:var(--muted);font-size:13px;letter-spacing:3px;text-transform:uppercase;animation:pulse 2.2s ease-in-out infinite}
+@keyframes orb{0%,100%{transform:scale(.7);opacity:.55}50%{transform:scale(1.5);opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes raysIn{to{opacity:1}}
 @keyframes ring{0%{opacity:.9;transform:scale(.2)}100%{opacity:0;transform:scale(9)}}
 @keyframes rise{to{opacity:1;transform:none}}
 @keyframes hintIn{to{opacity:.7}}
@@ -411,37 +424,180 @@ $('importFile').addEventListener('change', async e => {
   } catch (err) { toast('Datei konnte nicht gelesen werden'); }
 });
 
-/* ============ Intro-Seite ============ */
+/* ============ Intro-Seite (mit Musik) ============ */
+const INTRO_AUDIO = 'intro.mp3';
+/* Zeitpunkte (Sekunden im Song), an denen etwas passiert */
+const CUES = [
+  [0.0, 'start'], [1.0, 'hit1'], [2.88, 'ring'], [4.71, 'title'], [6.0, 'hint'],
+  [6.55, 'small'], [7.92, 'small'], [10.2, 'small'], [12.05, 'small'], [13.44, 'small'],
+  [17.55, 'big'], [26.7, 'small'], [30.3, 'small'], [35.8, 'med']
+];
+
+function loadIntroAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const none = { ctx: null, ready: Promise.resolve(null) };
+  if (!AC) return none;
+  let ctx; try { ctx = new AC(); } catch (e) { return none; }
+  const ready = fetch(INTRO_AUDIO).then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+    .then(b => new Promise((res, rej) => ctx.decodeAudioData(b, res, rej))).catch(() => null);
+  return { ctx, ready };
+}
+
 function runIntro() {
   const app = $('app');
   const homeLogo = app.querySelector('.hero .logo');
   if (!homeLogo) { app.classList.remove('intro-pending', 'hide-logo'); return; }
+  const src = homeLogo.src;
+  const aud = loadIntroAudio();
+
   const ov = document.createElement('div');
   ov.id = 'intro';
   ov.innerHTML = `
-    <div class="ibg fade"></div><canvas class="fade"></canvas>
-    <div class="rays fade"></div><div class="ring fade"></div><div class="ring r2 fade"></div>
+    <div class="ibg"></div><div class="iglow"></div><div class="rays"></div><canvas></canvas>
     <div class="istage">
-      <div class="ilogo"><img src="${homeLogo.src}" alt="Spieleolympiade"></div>
-      <h1 class="ititle fade" aria-label="Spieleolympiade">${[...'Spieleolympiade'].map((c, i) => `<span style="animation-delay:${1.5 + i * 0.06}s">${c}</span>`).join('')}</h1>
+      <div class="ilogo"><div class="ipulse"><img src="${src}" alt="Spieleolympiade"><div class="ishine"></div></div></div>
+      <h1 class="ititle" aria-label="Spieleolympiade">${[...'Spieleolympiade'].map((c, i) => `<span style="--i:${i}">${c}</span>`).join('')}</h1>
     </div>
-    <div class="ihint fade">Tippen zum Starten</div>`;
+    <div class="ihint">Tippen zum Weiter</div>
+    <div class="iveil"></div>
+    <div class="istart"><div class="orb"></div><div class="t">Tippen zum Starten</div></div>`;
   document.body.appendChild(ov);
 
-  const il = ov.querySelector('.ilogo').getBoundingClientRect();
-  const cx = il.left + il.width / 2, cy = il.top + il.height / 2;
+  const stage = ov.querySelector('.istage'), logoImg = ov.querySelector('.ipulse img'),
+        title = ov.querySelector('.ititle'), shineEl = ov.querySelector('.ishine'), hint = ov.querySelector('.ihint');
+  shineEl.style.webkitMaskImage = shineEl.style.maskImage = `url(${src})`;
+  const r0 = ov.querySelector('.ilogo').getBoundingClientRect();
+  const cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
   ov.style.setProperty('--cx', cx + 'px'); ov.style.setProperty('--cy', cy + 'px');
-  confetti(ov.querySelector('canvas'), cx, cy);
 
-  let ready = false, done = false;
-  setTimeout(() => ready = true, 1500);
-  const go = () => {
-    if (!ready || done) return; done = true;
-    document.removeEventListener('keydown', kd);
+  /* ---- Konfetti ---- */
+  const cv = ov.querySelector('canvas'), dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  const g = cv.getContext('2d');
+  const cols = ['#0a7cff', '#ffd400', '#ff2a1a', '#1fc83a', '#ffffff', '#f5c542'];
+  let P = [], confRunning = false, lastF = 0;
+  function burst(n, o = {}) {
+    const pw = o.power || 1, x0 = (o.x ?? cx) * dpr, y0 = (o.y ?? cy) * dpr;
+    for (let i = 0; i < n; i++) {
+      const dir = o.angle != null, a = dir ? o.angle + (Math.random() - .5) * (o.spread || .8) : Math.random() * 6.283;
+      const v = (4 + Math.random() * 10) * pw * dpr;
+      P.push({ x: x0, y: y0, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (dir ? 0 : 3 * dpr),
+        w: (5 + Math.random() * 7) * dpr, h: (3 + Math.random() * 5) * dpr, r: Math.random() * 6, vr: (Math.random() - .5) * .45,
+        c: cols[Math.random() * cols.length | 0], age: 0, max: 2400 + Math.random() * 1600 });
+    }
+    if (!confRunning) { confRunning = true; lastF = performance.now(); requestAnimationFrame(confLoop); }
+  }
+  function confLoop(now) {
+    if (!cv.isConnected) return;
+    const dt = now - lastF, f = Math.min(3, dt / 16.7); lastF = now;
+    g.clearRect(0, 0, cv.width, cv.height);
+    P = P.filter(p => p.age < p.max);
+    P.forEach(p => {
+      p.age += dt; p.vx *= Math.pow(.985, f); p.vy = p.vy * Math.pow(.985, f) + .22 * dpr * f;
+      p.x += p.vx * f; p.y += p.vy * f; p.r += p.vr * f;
+      g.globalAlpha = Math.min(1, (p.max - p.age) / 700);
+      g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.fillStyle = p.c; g.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); g.restore();
+    });
+    if (P.length) requestAnimationFrame(confLoop); else confRunning = false;
+  }
+
+  /* ---- Effekte ---- */
+  let b = 0;  // Puls (0..1), wird von der Musik bzw. den Schlägen gesteuert
+  function ring(col = '#f5c542', delay = 0) {
+    const r = document.createElement('div'); r.className = 'ring';
+    r.style.setProperty('--rc', col); r.style.animationDelay = delay + 's';
+    ov.insertBefore(r, stage); setTimeout(() => r.remove(), 2200 + delay * 1000);
+  }
+  function flash(a) {
+    const f = document.createElement('div'); f.className = 'flash'; ov.appendChild(f);
+    f.animate([{ opacity: a }, { opacity: 0 }], { duration: 650, easing: 'ease-out' }).onfinish = () => f.remove();
+  }
+  function shine() {
+    shineEl.animate([{ backgroundPosition: '160% 0' }, { backgroundPosition: '-60% 0' }], { duration: 1100, easing: 'ease-in-out' });
+  }
+  function cue(n) {
+    switch (n) {
+      case 'hit1':  flash(.9); ring(); logoImg.classList.add('in'); burst(60); b = 1; break;
+      case 'ring':  flash(.35); ring(); burst(70); b = 1; break;
+      case 'title': flash(.6); ring(); ring('#ffffff', .18); title.classList.add('go'); shine(); burst(130, { power: 1.25 }); b = 1; break;
+      case 'hint':  hint.classList.add('show'); break;
+      case 'small': burst(18, { power: .6 }); b = 1; break;
+      case 'med':   ring(); burst(60); b = 1; break;
+      case 'big':
+        flash(.8); ring(); ring('#ffffff', .2); shine(); burst(150, { power: 1.4 });
+        burst(60, { x: 0, y: innerHeight, angle: -1.05, spread: .7, power: 1.7 });
+        burst(60, { x: innerWidth, y: innerHeight, angle: -2.09, spread: .7, power: 1.7 });
+        b = 1; break;
+    }
+  }
+
+  /* ---- Ablauf ---- */
+  let phase = 0, mode = 'clock', tStart = 0, node = null, el = null;
+  const clock = () => mode === 'web' ? aud.ctx.currentTime - tStart
+                    : mode === 'el' ? el.currentTime : (performance.now() - tStart) / 1000;
+
+  async function begin() {
+    phase = 1;
+    const st = ov.querySelector('.istart'); st.style.opacity = 0; setTimeout(() => st.remove(), 500);
+    ov.querySelector('.iveil').style.opacity = 0;
+    let resumed = null;
+    if (aud.ctx) { try { resumed = aud.ctx.resume(); } catch (e) {} }
+    const buf = await Promise.race([aud.ready, new Promise(r => setTimeout(() => r(null), 2500))]);
+    try { await Promise.race([resumed, new Promise(r => setTimeout(r, 800))]); } catch (e) {}
+    let an = null;
+    if (buf && aud.ctx && aud.ctx.state === 'running') {
+      const s = aud.ctx.createBufferSource(); s.buffer = buf;
+      const gain = aud.ctx.createGain(); an = aud.ctx.createAnalyser(); an.fftSize = 256;
+      s.connect(gain); gain.connect(aud.ctx.destination); gain.connect(an);
+      tStart = aud.ctx.currentTime + 0.05; s.start(tStart); mode = 'web'; node = { s, gain };
+    } else {
+      try { el = new Audio(INTRO_AUDIO); await el.play(); mode = 'el'; }
+      catch (e) { el = null; mode = 'clock'; tStart = performance.now(); }
+    }
+    const data = an ? new Uint8Array(an.frequencyBinCount) : null;
+    let ci = 0, slow = 0;
+    (function tick() {
+      if (phase === 2 || !ov.isConnected) return;
+      const t = clock();
+      while (ci < CUES.length && t >= CUES[ci][0]) cue(CUES[ci++][1]);
+      if (an) {
+        an.getByteFrequencyData(data);
+        const cur = (data[1] + data[2] + data[3] + data[4]) / 4;
+        slow = slow * .97 + cur * .03;
+        b = Math.max(Math.max(0, Math.min(1, (cur - slow) / 45 + .25)), b * .9);
+      } else b *= .92;
+      const ramp = Math.min(1, Math.max(0, t) / 1.2);
+      ov.style.setProperty('--b', b.toFixed(3));
+      ov.style.setProperty('--gl', (ramp * (.55 + .45 * b)).toFixed(3));
+      ov.style.setProperty('--rl', (ramp * (.5 + .5 * b)).toFixed(3));
+      requestAnimationFrame(tick);
+    })();
+  }
+
+  function stopMusic() {
+    if (mode === 'web' && node) {
+      const c = aud.ctx.currentTime;
+      node.gain.gain.cancelScheduledValues(c); node.gain.gain.setValueAtTime(node.gain.gain.value, c);
+      node.gain.gain.linearRampToValueAtTime(0, c + 1.4);
+      try { node.s.stop(c + 1.5); } catch (e) {}
+    } else if (mode === 'el' && el) {
+      const t0 = performance.now(), v0 = el.volume;
+      const iv = setInterval(() => {
+        const k = (performance.now() - t0) / 1400;
+        try { el.volume = Math.max(0, v0 * (1 - k)); } catch (e) {}
+        if (k >= 1) { el.pause(); clearInterval(iv); }
+      }, 60);
+    }
+  }
+
+  function go() {
+    if (phase !== 1 || clock() < 3) return;
+    phase = 2; document.removeEventListener('keydown', kd);
+    stopMusic(); ov.style.setProperty('--b', 0);
     leaveIntro(ov, app);
-  };
-  const kd = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
-  ov.addEventListener('click', go);
+  }
+  const kd = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); phase === 0 ? begin() : go(); } };
+  ov.addEventListener('click', () => { phase === 0 ? begin() : go(); });
   document.addEventListener('keydown', kd);
 }
 
@@ -453,14 +609,13 @@ function leaveIntro(ov, app) {
   const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
   const s = to.width / from.width;
   ov.style.pointerEvents = 'none';
-  ov.querySelectorAll('.fade').forEach(el => {
-    const o = parseFloat(getComputedStyle(el).opacity) || 0;
-    el.animate([{ opacity: o }, { opacity: 0 }], { duration: 550, easing: 'ease-in', fill: 'forwards' });
+  ov.querySelectorAll('.ibg,.iglow,.rays,canvas,.ititle,.ihint,.ring,.flash').forEach(el => {
+    const o = parseFloat(getComputedStyle(el).opacity); 
+    el.animate([{ opacity: isNaN(o) ? 1 : o }, { opacity: 0 }], { duration: 550, easing: 'ease-in', fill: 'forwards' });
   });
   const mv = il.animate(
     [{ transform: 'none' }, { transform: `translate(${dx}px,${dy}px) scale(${s})` }],
     { duration: 950, easing: 'cubic-bezier(.65,0,.25,1)', fill: 'forwards' });
-  // Startseite einblenden, wenn das Logo fast angekommen ist
   setTimeout(() => {
     app.classList.remove('intro-pending');
     const items = [...app.querySelectorAll('.hero h1,.hero p')].concat([...app.children].filter(c => !c.classList.contains('hero')));
@@ -469,37 +624,6 @@ function leaveIntro(ov, app) {
       { duration: 550, delay: i * 90, easing: 'ease-out', fill: 'backwards' }));
   }, 620);
   mv.onfinish = () => { app.classList.remove('hide-logo'); ov.remove(); };
-}
-
-function confetti(cv, cx, cy) {
-  const dpr = window.devicePixelRatio || 1;
-  const W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr;
-  const ctx = cv.getContext('2d');
-  const cols = ['#0a7cff', '#ffd400', '#ff2a1a', '#1fc83a', '#ffffff', '#f5c542'];
-  const P = Array.from({ length: 110 }, () => {
-    const a = Math.random() * Math.PI * 2, v = (4 + Math.random() * 11) * dpr;
-    return { x: cx * dpr, y: cy * dpr, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 4 * dpr,
-      w: (5 + Math.random() * 7) * dpr, h: (3 + Math.random() * 5) * dpr,
-      r: Math.random() * 6, vr: (Math.random() - .5) * .45, c: cols[Math.random() * cols.length | 0] };
-  });
-  const t0 = performance.now() + 650;   // Start passend zum Logo-Einschlag
-  (function frame(now) {
-    if (!cv.isConnected) return;
-    const t = now - t0;
-    if (t > 4200) return;
-    ctx.clearRect(0, 0, W, H);
-    if (t > 0) {
-      const fade = t > 3000 ? Math.max(0, 1 - (t - 3000) / 1200) : 1;
-      ctx.globalAlpha = fade;
-      P.forEach(p => {
-        p.vx *= .985; p.vy = p.vy * .985 + .22 * dpr;
-        p.x += p.vx; p.y += p.vy; p.r += p.vr;
-        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
-        ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
-      });
-    }
-    requestAnimationFrame(frame);
-  })(performance.now());
 }
 
 /* ============ Start ============ */
