@@ -68,6 +68,38 @@ ul.rules li{margin:4px 0}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:#000c;border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:12px;transition:transform .25s;z-index:10;max-width:90vw;text-align:center}
 #toast.show{transform:translateX(-50%) translateY(0)}
 .empty{text-align:center;color:var(--muted);padding:26px 10px}
+
+/* ============ Intro ============ */
+#intro{position:fixed;inset:0;z-index:50;overflow:hidden;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#intro .ibg{position:absolute;inset:0;background:radial-gradient(900px 700px at 50% 42%,#2f3590 0%,#14183a 55%,#080a1a 100%)}
+#intro canvas{position:absolute;inset:0;width:100%;height:100%}
+#intro .rays{position:absolute;left:var(--cx);top:var(--cy);width:170vmax;height:170vmax;margin:-85vmax 0 0 -85vmax;
+  background:repeating-conic-gradient(from 0deg,rgba(245,197,66,.20) 0 6deg,transparent 6deg 18deg);
+  -webkit-mask-image:radial-gradient(circle,#000 0,transparent 42%);mask-image:radial-gradient(circle,#000 0,transparent 42%);
+  opacity:0;animation:raysIn 1.6s ease-out .3s forwards,spin 40s linear infinite}
+#intro .ring{position:absolute;left:var(--cx);top:var(--cy);width:200px;height:200px;margin:-100px 0 0 -100px;border-radius:50%;
+  background:radial-gradient(circle,transparent 65%,rgba(245,197,66,.95) 67%,transparent 70%);opacity:0;animation:ring 1.5s ease-out .65s}
+#intro .ring.r2{background:radial-gradient(circle,transparent 66%,rgba(255,255,255,.85) 67.5%,transparent 69%);animation-delay:.85s}
+#intro .istage{position:relative;display:flex;flex-direction:column;align-items:center;gap:22px;padding:0 16px;margin-top:-4vh}
+#intro .ilogo{width:min(320px,74vw)}
+#intro .ilogo img{display:block;width:100%;height:auto;animation:logoIn 1.4s cubic-bezier(.2,.9,.3,1.1) .2s both}
+#intro .ititle{margin:0;font-size:clamp(30px,9.5vw,54px);letter-spacing:1px;text-align:center;color:var(--gold2);text-shadow:0 0 22px rgba(245,197,66,.55);white-space:nowrap}
+#intro .ititle span{display:inline-block;opacity:0;transform:translateY(26px);animation:rise .65s cubic-bezier(.2,.9,.3,1.2) forwards}
+#intro .ihint{position:absolute;left:0;right:0;bottom:calc(7vh + env(safe-area-inset-bottom));text-align:center;color:var(--muted);font-size:13px;letter-spacing:3px;text-transform:uppercase;
+  opacity:0;animation:hintIn .8s ease-out 2.8s both,pulse 2.2s ease-in-out 3.6s infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes raysIn{to{opacity:1}}
+@keyframes ring{0%{opacity:.9;transform:scale(.2)}100%{opacity:0;transform:scale(9)}}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes hintIn{to{opacity:.7}}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:.75}}
+@keyframes logoIn{
+  0%{opacity:0;transform:scale(.12) rotate(-20deg);filter:blur(14px) drop-shadow(0 0 0 rgba(245,197,66,0))}
+  55%{opacity:1;transform:scale(1.13) rotate(3deg);filter:blur(0) drop-shadow(0 0 46px rgba(245,197,66,.95))}
+  76%{transform:scale(.97) rotate(-1deg)}
+  100%{opacity:1;transform:none;filter:drop-shadow(0 8px 24px rgba(0,0,0,.5)) drop-shadow(0 0 26px rgba(245,197,66,.35))}}
+.intro-pending .hero h1,.intro-pending .hero p,.intro-pending>.card,.intro-pending>.empty,.intro-pending>.olycard{opacity:0}
+.hide-logo .hero .logo{visibility:hidden}
 </style>
 </head>
 <body>
@@ -379,7 +411,104 @@ $('importFile').addEventListener('change', async e => {
   } catch (err) { toast('Datei konnte nicht gelesen werden'); }
 });
 
-render();
+/* ============ Intro-Seite ============ */
+function runIntro() {
+  const app = $('app');
+  const homeLogo = app.querySelector('.hero .logo');
+  if (!homeLogo) { app.classList.remove('intro-pending', 'hide-logo'); return; }
+  const ov = document.createElement('div');
+  ov.id = 'intro';
+  ov.innerHTML = `
+    <div class="ibg fade"></div><canvas class="fade"></canvas>
+    <div class="rays fade"></div><div class="ring fade"></div><div class="ring r2 fade"></div>
+    <div class="istage">
+      <div class="ilogo"><img src="${homeLogo.src}" alt="Spieleolympiade"></div>
+      <h1 class="ititle fade" aria-label="Spieleolympiade">${[...'Spieleolympiade'].map((c, i) => `<span style="animation-delay:${1.5 + i * 0.06}s">${c}</span>`).join('')}</h1>
+    </div>
+    <div class="ihint fade">Tippen zum Starten</div>`;
+  document.body.appendChild(ov);
+
+  const il = ov.querySelector('.ilogo').getBoundingClientRect();
+  const cx = il.left + il.width / 2, cy = il.top + il.height / 2;
+  ov.style.setProperty('--cx', cx + 'px'); ov.style.setProperty('--cy', cy + 'px');
+  confetti(ov.querySelector('canvas'), cx, cy);
+
+  let ready = false, done = false;
+  setTimeout(() => ready = true, 1500);
+  const go = () => {
+    if (!ready || done) return; done = true;
+    document.removeEventListener('keydown', kd);
+    leaveIntro(ov, app);
+  };
+  const kd = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
+  ov.addEventListener('click', go);
+  document.addEventListener('keydown', kd);
+}
+
+function leaveIntro(ov, app) {
+  const il = ov.querySelector('.ilogo');
+  const from = il.getBoundingClientRect();
+  const to = app.querySelector('.hero .logo').getBoundingClientRect();
+  const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
+  const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
+  const s = to.width / from.width;
+  ov.style.pointerEvents = 'none';
+  ov.querySelectorAll('.fade').forEach(el => {
+    const o = parseFloat(getComputedStyle(el).opacity) || 0;
+    el.animate([{ opacity: o }, { opacity: 0 }], { duration: 550, easing: 'ease-in', fill: 'forwards' });
+  });
+  const mv = il.animate(
+    [{ transform: 'none' }, { transform: `translate(${dx}px,${dy}px) scale(${s})` }],
+    { duration: 950, easing: 'cubic-bezier(.65,0,.25,1)', fill: 'forwards' });
+  // Startseite einblenden, wenn das Logo fast angekommen ist
+  setTimeout(() => {
+    app.classList.remove('intro-pending');
+    const items = [...app.querySelectorAll('.hero h1,.hero p')].concat([...app.children].filter(c => !c.classList.contains('hero')));
+    items.forEach((el, i) => el.animate(
+      [{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 550, delay: i * 90, easing: 'ease-out', fill: 'backwards' }));
+  }, 620);
+  mv.onfinish = () => { app.classList.remove('hide-logo'); ov.remove(); };
+}
+
+function confetti(cv, cx, cy) {
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr;
+  const ctx = cv.getContext('2d');
+  const cols = ['#0a7cff', '#ffd400', '#ff2a1a', '#1fc83a', '#ffffff', '#f5c542'];
+  const P = Array.from({ length: 110 }, () => {
+    const a = Math.random() * Math.PI * 2, v = (4 + Math.random() * 11) * dpr;
+    return { x: cx * dpr, y: cy * dpr, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 4 * dpr,
+      w: (5 + Math.random() * 7) * dpr, h: (3 + Math.random() * 5) * dpr,
+      r: Math.random() * 6, vr: (Math.random() - .5) * .45, c: cols[Math.random() * cols.length | 0] };
+  });
+  const t0 = performance.now() + 650;   // Start passend zum Logo-Einschlag
+  (function frame(now) {
+    if (!cv.isConnected) return;
+    const t = now - t0;
+    if (t > 4200) return;
+    ctx.clearRect(0, 0, W, H);
+    if (t > 0) {
+      const fade = t > 3000 ? Math.max(0, 1 - (t - 3000) / 1200) : 1;
+      ctx.globalAlpha = fade;
+      P.forEach(p => {
+        p.vx *= .985; p.vy = p.vy * .985 + .22 * dpr;
+        p.x += p.vx; p.y += p.vy; p.r += p.vr;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+        ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+      });
+    }
+    requestAnimationFrame(frame);
+  })(performance.now());
+}
+
+/* ============ Start ============ */
+const wantIntro = !route().o && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (wantIntro) {
+  $('app').classList.add('intro-pending', 'hide-logo');
+  render();
+  runIntro();
+} else render();
 </script>
 </body>
 </html>
