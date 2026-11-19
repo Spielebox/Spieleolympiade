@@ -147,10 +147,10 @@ select:focus{border-color:var(--gold)}
 #reveal .rtag{position:absolute;top:calc(8px + env(safe-area-inset-top));right:10px;z-index:6;font-size:10.5px;letter-spacing:.5px;color:rgba(255,255,255,.62);background:rgba(0,0,0,.4);padding:3px 8px;border-radius:9px;pointer-events:none}
 #reveal .rstage{position:absolute;inset:0;will-change:transform}
 #reveal .rflash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:5}
-#reveal .rtop{position:absolute;left:0;right:0;top:9%;display:flex;justify-content:center;z-index:2}
-#reveal .plate{padding:8px 30px 6px;border-radius:10px;font-size:clamp(40px,14vw,78px);font-weight:900;letter-spacing:3px;line-height:1.05;color:var(--gold);
-  background:linear-gradient(180deg,#5a5f78,#2b2e42 55%,#1d1f2e);border:3px solid #9c8240;
-  box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -6px 12px rgba(0,0,0,.45),0 10px 24px rgba(0,0,0,.6);text-shadow:0 2px 0 #7a5a12,0 0 22px rgba(245,197,66,.5)}
+#reveal .rtop{position:absolute;left:0;right:0;top:7%;display:flex;justify-content:center;z-index:2}
+#reveal .plate{width:min(78vw,350px);aspect-ratio:1000/445;display:flex;align-items:center;justify-content:center;font-size:clamp(30px,9.6vw,50px);font-weight:900;letter-spacing:3px;line-height:1;white-space:nowrap;
+  background:#0b0c10 url(block.png) center/100% 100% no-repeat;color:#e9b93c;
+  text-shadow:-1px -2px 1px rgba(0,0,0,.95),0 0 1px rgba(0,0,0,.9),1px 2px 1px rgba(255,236,170,.4),0 0 18px rgba(245,197,66,.28)}
 #reveal .rmid{position:absolute;left:0;right:0;top:27%;height:27%;display:flex;align-items:center;justify-content:center;z-index:1}
 #reveal .rtw{width:100%;position:relative;z-index:1}
 #reveal .pool{position:absolute;left:-10%;right:-10%;top:-30%;bottom:-30%;background:radial-gradient(ellipse at 50% 50%,rgba(245,197,66,.22),transparent 65%);opacity:0;pointer-events:none}
@@ -792,7 +792,6 @@ function playReveal(o, game, done) {
   function impact() {
     const r = plate.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     addShake(16, 6); flash(.55); ringAt(cx, cy, '#ffcf5a', 9); at(90, () => ringAt(cx, cy, '#ffffff', 14)); fx.sparks(cx, cy, 100, 1.4);
-    an(plate, [{ boxShadow: '0 0 70px 16px rgba(255,210,100,.9)' }, { boxShadow: '0 10px 24px rgba(0,0,0,.6)' }], { duration: 550 });
   }
   function land() {
     slot.textContent = owner.name; slot.classList.add('land');
@@ -810,9 +809,9 @@ function playReveal(o, game, done) {
       an(pool, [{ opacity: 0 }, { opacity: 1 }], { duration: 1200, fill: 'forwards' });
       lines.forEach(l => an(l, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' }));
       ws.forEach((w, i) => {
-        an(w, [{ opacity: 0, transform: 'translateY(12px) scale(1.18)', letterSpacing: '.32em' }, { opacity: 1, transform: 'none', letterSpacing: '.02em' }], { duration: 850, delay: 250 + i * 260, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
+        an(w, [{ opacity: 0, transform: 'translateY(12px) scale(1.18)', letterSpacing: '.32em' }, { opacity: 1, transform: 'none', letterSpacing: '.02em' }], { duration: 850, delay: 250, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
       });
-      const dEnd = 250 + ws.length * 260 + 500;
+      const dEnd = 250 + 500;
       gs.forEach(g => an(g, [{ backgroundPosition: '100% 0' }, { backgroundPosition: '0 0' }], { duration: 1300, delay: dEnd - 400, easing: 'ease-in-out', fill: 'forwards' }));
       at(dEnd, () => { const r = tt.getBoundingClientRect(); fx.sparks(r.left + r.width / 2, r.top + r.height / 2, 40, 1); });
     },
