@@ -117,6 +117,15 @@ ul.rules li{margin:4px 0}
 @keyframes ignite{
   0%{filter:brightness(2.6) drop-shadow(0 0 80px rgba(255,170,60,1)) drop-shadow(0 0 0 rgba(0,0,0,0))}
   100%{filter:brightness(1) drop-shadow(0 8px 24px rgba(0,0,0,.5)) drop-shadow(0 0 26px rgba(245,197,66,.35))}}
+/* ---- ruhiges Intro am App-Start ---- */
+#intro.calm{cursor:default}
+#intro.calm .iglow{animation:calmGlow 2.4s ease-out forwards,calmGlow2 4.2s ease-in-out 2.4s infinite}
+#intro.calm .ipulse{animation:calmBreath 4.2s ease-in-out 1.9s infinite}
+#intro.calm .ititle.go span{animation:softIn 1.2s ease-out forwards;animation-delay:calc(var(--i)*.05s)}
+@keyframes calmGlow{from{opacity:0;transform:scale(.5)}to{opacity:.62;transform:scale(.9)}}
+@keyframes calmGlow2{0%,100%{opacity:.62;transform:scale(.9)}50%{opacity:.9;transform:scale(1)}}
+@keyframes calmBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.022)}}
+@keyframes softIn{from{opacity:0;transform:translateY(10px);filter:blur(6px)}to{opacity:1;transform:none;filter:blur(0)}}
 .intro-pending .hero h1,.intro-pending .hero p,.intro-pending>.card,.intro-pending>.empty,.intro-pending>.olycard{opacity:0}
 .hide-logo .hero .logo{visibility:hidden}
 </style>
@@ -778,12 +787,90 @@ function leaveIntro(ov, app) {
   mv.onfinish = () => { app.classList.remove('hide-logo'); ov.remove(); };
 }
 
+
+/* ============ Ruhiges Intro (App-Start, ohne Ton) ============
+   Logo blendet weich ein, atmet leicht, Glut steigt auf, dann gleitet es automatisch
+   auf die Startseite. Tippen überspringt. */
+const CALM_HOLD_MS = 4800;   // so lange bleibt das Logo stehen, bevor es sich zurückzieht
+const rrnd = (a, c) => a + Math.random() * (c - a);
+
+function runCalmIntro() {
+  const app = $('app');
+  const homeLogo = app.querySelector('.hero .logo');
+  if (!homeLogo) { app.classList.remove('intro-pending', 'hide-logo'); return; }
+  const src = homeLogo.src;
+  const ov = document.createElement('div');
+  ov.id = 'intro'; ov.className = 'calm';
+  ov.innerHTML = `
+    <div class="ibg"></div><div class="iglow"></div><canvas></canvas>
+    <div class="istage">
+      <div class="ilogo"><div class="ipulse"><img src="${src}" alt="Spieleolympiade"><div class="ishine"></div></div></div>
+      <h1 class="ititle" aria-label="Spieleolympiade">${[...'Spieleolympiade'].map((c, i) => `<span style="--i:${i}">${c}</span>`).join('')}</h1>
+    </div>`;
+  document.body.appendChild(ov);
+  const img = ov.querySelector('.ipulse img'), ipulse = ov.querySelector('.ipulse'),
+        shineEl = ov.querySelector('.ishine'), title = ov.querySelector('.ititle');
+  shineEl.style.webkitMaskImage = shineEl.style.maskImage = `url(${src})`;
+  const r0 = ov.querySelector('.ilogo').getBoundingClientRect();
+  ov.style.setProperty('--cx', (r0.left + r0.width / 2) + 'px'); ov.style.setProperty('--cy', (r0.top + r0.height / 2) + 'px');
+
+  // Logo weich einblenden
+  img.animate([
+    { opacity: 0, transform: 'scale(.93)', filter: 'blur(10px) drop-shadow(0 0 0 rgba(0,0,0,0))' },
+    { opacity: 1, transform: 'none', filter: 'blur(0px) drop-shadow(0 8px 24px rgba(0,0,0,.5))' }
+  ], { duration: 1700, delay: 200, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'both' });
+  setTimeout(() => title.classList.add('go'), 1100);
+  setTimeout(() => shineEl.animate([{ backgroundPosition: '160% 0' }, { backgroundPosition: '-60% 0' }],
+    { duration: 1600, easing: 'ease-in-out' }), 2100);
+
+  // sanfte Glut
+  const cv = ov.querySelector('canvas'), dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  const g = cv.getContext('2d');
+  let EP = [], last = performance.now();
+  const spawn = initial => EP.push({ x: rrnd(0, innerWidth), y: initial ? rrnd(0, innerHeight) : innerHeight + 8,
+    vx: rrnd(-.2, .2), vy: -rrnd(.25, .7), r: rrnd(.8, 2), age: initial ? rrnd(0, 3000) : 0,
+    max: rrnd(5000, 9000), ph: rrnd(0, 6.28), hue: rrnd(24, 44) });
+  for (let i = 0; i < 22; i++) spawn(true);
+  (function frame(now) {
+    if (!ov.isConnected) return;
+    const dt = Math.min(50, now - last), f = dt / 16.7; last = now;
+    if (Math.random() < .07 * f && EP.length < 60) spawn(false);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, innerWidth, innerHeight);
+    g.globalCompositeOperation = 'lighter';
+    EP = EP.filter(p => p.age < p.max && p.y > -20);
+    for (const p of EP) {
+      p.age += dt; const lt = p.age / p.max;
+      p.x += p.vx * f + Math.sin(p.age * .0015 + p.ph) * .25 * f; p.y += p.vy * f;
+      const al = (1 - lt) * Math.min(1, p.age / 900) * (.5 + .4 * Math.sin(p.ph + p.age * .006)) * .8;
+      g.fillStyle = `hsla(${p.hue},100%,60%,${al * .2})`; g.beginPath(); g.arc(p.x, p.y, p.r * 3.4, 0, 6.283); g.fill();
+      g.fillStyle = `hsla(${p.hue},100%,72%,${al})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 6.283); g.fill();
+    }
+    requestAnimationFrame(frame);
+  })(performance.now());
+
+  // automatisch zurückziehen (oder per Tippen überspringen)
+  const t0 = performance.now();
+  let done = false, timer = setTimeout(leave, CALM_HOLD_MS);
+  function leave() {
+    if (done) return; done = true; clearTimeout(timer);
+    document.removeEventListener('keydown', kd);
+    const cs = getComputedStyle(ipulse).transform;
+    ipulse.style.animation = 'none';
+    ipulse.animate([{ transform: cs === 'none' ? 'none' : cs }, { transform: 'none' }], { duration: 450, fill: 'forwards' });
+    leaveIntro(ov, app);
+  }
+  const kd = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (performance.now() - t0 > 500) leave(); } };
+  ov.addEventListener('click', () => { if (performance.now() - t0 > 500) leave(); });
+  document.addEventListener('keydown', kd);
+}
+
 /* ============ Start ============ */
 const wantIntro = !route().o && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (wantIntro) {
   $('app').classList.add('intro-pending', 'hide-logo');
   render();
-  runIntro();
+  runCalmIntro();
 } else render();
 </script>
 </body>
