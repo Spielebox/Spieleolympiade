@@ -127,6 +127,39 @@ ul.rules li{margin:4px 0}
 @keyframes calmGlow2{0%,100%{opacity:.5;transform:scale(.9)}50%{opacity:.75;transform:scale(1)}}
 @keyframes calmBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.022)}}
 @keyframes softIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* ============ Austragung ============ */
+select{width:100%;font:inherit;color:var(--text);background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;outline:none;min-width:0}
+select:focus{border-color:var(--gold)}
+.gtitle{font-size:clamp(26px,8vw,40px);font-weight:800;color:var(--gold2);text-shadow:0 0 18px rgba(245,197,66,.4);margin:6px 0;overflow-wrap:anywhere}
+.stat{display:inline-block;font-size:12px;padding:3px 9px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);color:var(--muted)}
+.stat.ok2{color:var(--ok);border-color:#2f6b4a}
+.stat.pa{color:#ffb86b;border-color:#7a5326}
+.rank li b{min-width:34px;text-align:right;color:var(--gold2)}
+.rank .num.first{background:linear-gradient(180deg,var(--gold2),var(--gold));color:#1a1500;border-color:var(--gold)}
+.sel3 label{margin-top:12px}
+.stack{display:flex;flex-direction:column;gap:10px}
+/* Auslosung / Spielvorstellung */
+#reveal{position:fixed;inset:0;z-index:60;overflow:hidden;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;
+  background:radial-gradient(900px 700px at 50% 40%,#2a3088 0%,#12163a 55%,#070918 100%);--cx:50%;--cy:38%}
+#reveal canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#reveal .rglow{position:absolute;left:var(--cx);top:var(--cy);width:120vmax;height:120vmax;margin:-60vmax 0 0 -60vmax;background:radial-gradient(circle,rgba(245,197,66,.34) 0,rgba(245,197,66,.1) 16%,transparent 38%);opacity:0;animation:rglow 4s ease-in-out infinite}
+@keyframes rglow{0%,100%{opacity:.5;transform:scale(.85)}50%{opacity:.85;transform:scale(1)}}
+#reveal .rcenter{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 18px;width:100%;max-width:640px;margin-top:-6vh}
+#reveal .rno{font-size:clamp(44px,15vw,92px);font-weight:900;letter-spacing:4px;color:var(--gold2);text-shadow:0 0 34px rgba(245,197,66,.75);opacity:0;line-height:1}
+#reveal .rno.in{animation:slam .8s cubic-bezier(.2,.9,.3,1.1) forwards}
+@keyframes slam{0%{opacity:0;transform:scale(3.2);filter:blur(8px)}60%{opacity:1;transform:scale(.94);filter:blur(0)}100%{opacity:1;transform:none;filter:blur(0)}}
+#reveal .rlabel{font-size:13px;letter-spacing:4px;text-transform:uppercase;color:var(--muted);opacity:0;transition:opacity .6s;margin-top:18px}
+#reveal .rlabel.in{opacity:1}
+#reveal .rslot{font-size:clamp(30px,10vw,54px);font-weight:800;color:#fff;min-height:1.3em;line-height:1.3;opacity:0;transition:opacity .4s;overflow-wrap:anywhere}
+#reveal .rslot.in{opacity:1}
+#reveal .rslot.land{color:var(--gold2);text-shadow:0 0 26px rgba(245,197,66,.7)}
+#reveal .rtitle{font-size:clamp(30px,9.5vw,56px);font-weight:800;color:var(--gold2);text-shadow:0 0 28px rgba(245,197,66,.55);line-height:1.15;overflow-wrap:anywhere}
+#reveal .rtitle span{display:inline-block;opacity:0;transform:translateY(24px) scale(.9);margin:0 .12em}
+#reveal .rtitle.go span{animation:rise .6s cubic-bezier(.2,.9,.3,1.2) forwards;animation-delay:calc(var(--i)*.2s)}
+#reveal .rgo{margin-top:26px;opacity:0;pointer-events:none;transition:opacity .6s;font-size:17px;padding:13px 26px}
+#reveal .rgo.in{opacity:1;pointer-events:auto}
+#reveal .ring{position:absolute;left:var(--cx);top:var(--cy);width:200px;height:200px;margin:-100px 0 0 -100px;border-radius:50%;
+  background:radial-gradient(circle,transparent 65%,var(--rc,#f5c542) 67%,transparent 70%);opacity:0;animation:ring 1.6s ease-out forwards;pointer-events:none}
 .intro-pending .hero h1,.intro-pending .hero p,.intro-pending>.card,.intro-pending>.empty,.intro-pending>.olycard{opacity:0}
 .hide-logo .hero .logo{visibility:hidden}
 </style>
@@ -212,7 +245,7 @@ function fmtDur(min) {
   const h = Math.floor(min / 60), m = min % 60;
   return (h ? h + ' Std ' : '') + (m ? m + ' Min' : (h ? '' : '0 Min'));
 }
-const statusLabel = s => ({ prep: 'Vorbereitung', running: 'Läuft', finished: 'Beendet' }[s] || s);
+const statusLabel = s => ({ prep: 'Vorbereitung', running: 'Läuft', paused: 'Pausiert', finished: 'Beendet' }[s] || s);
 
 /* ============ Ansichten ============ */
 function viewHome() {
@@ -243,6 +276,7 @@ function viewHome() {
 }
 
 function viewOlympiad(o, tab) {
+  if (tab === 'run') return viewRun(o);
   const tabs = [['details', 'Details'], ['teilnehmer', 'Teilnehmer'], ['einladung', 'Einladung'], ['regeln', 'Regeln']];
   const body = { details: tabDetails, teilnehmer: tabTeilnehmer, einladung: tabEinladung, regeln: tabRegeln }[tab] || tabDetails;
   return `
@@ -252,8 +286,32 @@ function viewOlympiad(o, tab) {
   ${body(o)}`;
 }
 
+function cardAustragung(o) {
+  const n = o.participants.length, played = o.games.filter(g => g.state === 'played').length;
+  let inner;
+  if (o.status === 'prep') {
+    inner = n < 4
+      ? `<p class="muted">Zum Start braucht es mindestens 4 Teilnehmer: Der Schiedsrichter spielt nicht mit, und für Platz 1–3 braucht es 3 Spieler.</p>
+         <button disabled style="width:100%">▶ Austragung starten</button>`
+      : `<p class="muted">Wenn alle da sind: Titel geheim eintragen, auslosen, spielen. Danach ist die Teilnehmerliste gesperrt.</p>
+         <button style="width:100%" onclick="startOlympiad()">▶ Austragung starten</button>`;
+  } else if (o.status === 'paused') {
+    inner = `<p class="muted">Pausiert nach ${played} von ${o.games.length} Spielen. Alles ist gespeichert.</p>
+             <button style="width:100%" onclick="resumeOly()">▶ Fortsetzen (neuer Termin)</button>`;
+  } else if (o.status === 'running') {
+    inner = `<p class="muted">${played} von ${o.games.length} Spielen gespielt.</p>
+             <a class="btn" style="display:block" href="#/o/${o.id}/run">Zur Austragung</a>`;
+  } else {
+    inner = `<p class="muted">Die Olympiade ist beendet.</p>
+             <a class="btn" style="display:block" href="#/o/${o.id}/run">Ergebnis ansehen</a>`;
+  }
+  const sess = (o.sessions || []).map((s, i) => `<li><span class="num">${i + 1}</span><span class="grow">${esc(fmtShort(s.date))}${s.place ? ' · ' + esc(s.place) : ''}</span><span class="muted">${o.games.filter(g => g.sessionId === s.id && g.state === 'played').length} Spiel(e)</span></li>`).join('');
+  return `<div class="card"><h2>Austragung</h2>${inner}${sess ? `<h3>Termine</h3><ul class="plist">${sess}</ul>` : ''}</div>`;
+}
+
 function tabDetails(o) {
   return `
+  ${o.status !== 'prep' ? cardAustragung(o) : ''}
   <div class="card">
     <h2>Eckdaten</h2>
     <label>Name der Olympiade</label>
@@ -269,11 +327,7 @@ function tabDetails(o) {
     <label>Notizen / Hinweise für alle</label>
     <textarea oninput="setField('notes',this.value)" placeholder="z. B. Parkplätze, Essen &amp; Trinken, Dresscode …">${esc(o.notes)}</textarea>
   </div>
-  <div class="card">
-    <h2>Austragung</h2>
-    <p class="muted">Sobald alle Teilnehmer eingetragen sind, startet hier später die Olympiade mit geheimer Titeleingabe und Auslosung.</p>
-    <button disabled style="width:100%">▶ Austragung starten (folgt in Schritt 2)</button>
-  </div>
+  ${o.status === 'prep' ? cardAustragung(o) : ''}
   <div class="card">
     <button class="danger" onclick="deleteOly()">Olympiade löschen</button>
   </div>`;
@@ -286,16 +340,16 @@ function tabTeilnehmer(o) {
   <div class="card">
     <h2>Teilnehmer</h2>
     <p class="muted">Jeder Teilnehmer bringt genau ein Spiel mit und ist dabei Schiedsrichter.</p>
-    <div class="row">
+    ${o.games.length ? `<div class="warn">🔒 Die Austragung hat begonnen – die Teilnehmerliste ist gesperrt.</div>` : `<div class="row">
       <input id="pname" class="grow" placeholder="Name eintragen" onkeydown="if(event.key==='Enter')addParticipant()" autocomplete="off">
       <button onclick="addParticipant()">Hinzufügen</button>
-    </div>
+    </div>`}
     ${n ? `<ul class="plist">${o.participants.map((p, i) => `
       <li><span class="num">${i + 1}</span><span class="grow">${esc(p.name)}</span>
-      <button class="icon" onclick="removeParticipant('${p.id}')" aria-label="Entfernen">✕</button></li>`).join('')}</ul>`
+      ${o.games.length ? '' : `<button class="icon" onclick="removeParticipant('${p.id}')" aria-label="Entfernen">✕</button>`}</li>`).join('')}</ul>`
       : `<div class="empty">Noch niemand eingetragen.</div>`}
-    ${n === 0 ? '' : n < 3
-      ? `<div class="warn">⚠ Mindestens 3 Teilnehmer nötig, damit es Platz 1–3 gibt (besser mehr).</div>`
+    ${n === 0 ? '' : n < 4
+      ? `<div class="warn">⚠ Mindestens 4 Teilnehmer nötig: Der Schiedsrichter spielt nicht mit, und es braucht 3 Spieler für Platz 1–3.</div>`
       : `<div class="ok">✓ ${n} Teilnehmer = ${n} Spiele · ca. ${fmtDur(total)} reine Spielzeit bei 15 Min je Spiel (plus Pausen &amp; Siegerehrung)</div>`}
   </div>`;
 }
@@ -411,6 +465,307 @@ async function shareInvite() {
   const txt = $('invite').value;
   if (navigator.share) { try { await navigator.share({ title: cur().name, text: txt }); } catch (e) {} }
   else copyInvite();
+}
+
+
+/* ============ Austragung: Zustand ============ */
+const ui = { titleFor: null };
+const todayISO = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const pById = (o, id) => o.participants.find(p => p.id === id);
+const gOf = (o, pid) => o.games.find(g => g.ownerId === pid);
+const gById = (o, id) => o.games.find(g => g.id === id);
+const curSession = o => (o.sessions || [])[(o.sessions || []).length - 1];
+
+function scores(o) {
+  const m = {}; o.participants.forEach(p => m[p.id] = 0);
+  o.games.forEach(g => { if (g.state === 'played' && g.result) [1, 2, 3].forEach(k => { const pid = g.result[k]; if (pid in m) m[pid] += 4 - k; }); });
+  return m;
+}
+function ranking(o) {
+  const m = scores(o);
+  const arr = o.participants.map(p => ({ p, pts: m[p.id] })).sort((a, b) => b.pts - a.pts || a.p.name.localeCompare(b.p.name, 'de'));
+  let r = 0, prev = null;
+  arr.forEach((x, i) => { if (x.pts !== prev) { r = i + 1; prev = x.pts; } x.rank = r; x.tie = arr.filter(y => y.pts === x.pts).length > 1; });
+  return arr;
+}
+function rankList(o) {
+  return `<ul class="plist rank">${ranking(o).map(x => `
+    <li><span class="num ${x.rank === 1 && x.pts > 0 ? 'first' : ''}">${x.rank}</span><span class="grow">${esc(x.p.name)}${x.tie ? ' <span class="muted">(gleichauf)</span>' : ''}</span><b>${x.pts}</b></li>`).join('')}</ul>`;
+}
+
+/* ============ Austragung: Ansichten ============ */
+function viewRun(o) {
+  const head = `
+  <a class="back" href="#/o/${o.id}/details">‹ Zur Olympiade</a>
+  <div class="row"><img class="hdrlogo" src="${LOGO}" alt=""><h2 class="grow" style="font-size:20px">${esc(o.name || 'Ohne Namen')}</h2><span class="badge">${statusLabel(o.status)}</span></div>`;
+  let body;
+  if (o.status === 'prep') body = `<div class="card"><p class="muted">Die Austragung wurde noch nicht gestartet.</p><a class="btn" href="#/o/${o.id}/details">Zurück</a></div>`;
+  else if (o.status === 'paused') body = runPaused(o);
+  else if (o.status === 'finished') body = runFinished(o);
+  else if (o.current) body = runGame(o);
+  else if (!o.titlesDone) body = runTitles(o);
+  else body = runStandings(o);
+  return head + body;
+}
+
+function runPaused(o) {
+  const played = o.games.filter(g => g.state === 'played').length;
+  return `<div class="card"><h2>⏸ Pausiert</h2>
+    <p class="muted">${played} von ${o.games.length} Spielen gespielt. Reihenfolge, Titel und Punkte sind gespeichert.</p>
+    <button style="width:100%" onclick="resumeOly()">▶ Fortsetzen (neuer Termin)</button></div>
+    <div class="card"><h2>Zwischenstand</h2>${rankList(o)}</div>`;
+}
+
+function runTitles(o) {
+  if (ui.titleFor) {
+    const p = pById(o, ui.titleFor), g = gOf(o, p.id);
+    return `<div class="card" style="text-align:center">
+      <h2>Hallo ${esc(p.name)}! 👋</h2>
+      <p class="muted">Gib den Titel deines Spiels ein. Er bleibt geheim, bis dein Spiel ausgelost wird. Die anderen sollen nicht mitlesen.</p>
+      <input id="gtitle" value="${esc(g.title)}" placeholder="Titel deines Spiels" maxlength="60" autocomplete="off" onkeydown="if(event.key==='Enter')saveTitle('${p.id}')">
+      <div class="row wrap" style="margin-top:12px"><button class="grow" onclick="saveTitle('${p.id}')">Speichern</button><button class="sec grow" onclick="cancelTitle()">Abbrechen</button></div>
+      <div style="margin-top:16px"><button class="danger" onclick="postponeGame('${g.id}')">Mein Spiel ist heute nicht dabei</button></div>
+    </div>`;
+  }
+  const open = o.games.filter(g => g.state === 'open').length;
+  return `<div class="card"><h2>Spieletitel eintragen</h2>
+    <p class="muted">Jeder trägt seinen Titel geheim ein: Name antippen, Titel eingeben, Gerät weitergeben.</p>
+    <ul class="plist">${o.participants.map((p, i) => {
+      const g = gOf(o, p.id);
+      const st = g.state === 'ready' ? `<span class="stat ok2">✓ eingetragen</span>` : g.state === 'postponed' ? `<span class="stat pa">⏸ nicht heute</span>` : `<span class="stat">offen</span>`;
+      const act = g.state === 'ready' ? ['Ändern', `openTitle('${p.id}')`] : g.state === 'postponed' ? ['Doch dabei', `unpostpone('${g.id}')`] : ['Eintragen', `openTitle('${p.id}')`];
+      return `<li><span class="num">${i + 1}</span><span class="grow">${esc(p.name)}<br>${st}</span><button class="sec" onclick="${act[1]}">${act[0]}</button></li>`;
+    }).join('')}</ul></div>
+    <div class="card">
+      ${open ? `<p class="warn" style="margin-top:0">Noch ${open} Titel offen.</p>` : ''}
+      <button style="width:100%" ${open ? 'disabled' : ''} onclick="finishTitles()">Weiter zur Auslosung →</button>
+    </div>
+    ${pauseCard()}`;
+}
+
+function runStandings(o) {
+  const played = o.games.filter(g => g.state === 'played').length, total = o.games.length;
+  const ready = o.games.filter(g => g.state === 'ready'), post = o.games.filter(g => g.state === 'postponed');
+  let action;
+  if (ready.length) action = `<button style="width:100%" onclick="drawNext()">🎲 Nächstes Spiel auslosen</button><p class="muted" style="margin-bottom:0">${ready.length} Spiel(e) noch nicht gespielt.</p>`;
+  else if (post.length) action = `<p class="muted" style="margin-top:0">Alle vorbereiteten Spiele sind gespielt. ${post.length} Spiel(e) sind zurückgestellt.</p>
+      <button class="sec" style="width:100%" onclick="finishOlympiad()">Ohne zurückgestellte Spiele beenden</button>`;
+  else action = `<button style="width:100%" onclick="finishOlympiad()">🏆 Zur Siegerehrung</button>`;
+  return `<div class="card"><h2>Zwischenstand</h2><div class="muted">${played} von ${total} Spielen gespielt</div>${rankList(o)}</div>
+    <div class="card">${action}</div>
+    ${post.length ? `<div class="card"><h2>Zurückgestellte Spiele</h2><ul class="plist">${post.map(g => `<li><span class="grow">${esc(pById(o, g.ownerId).name)}</span><button class="sec" onclick="unpostpone('${g.id}')">Wieder aufnehmen</button></li>`).join('')}</ul></div>` : ''}
+    ${pauseCard()}`;
+}
+
+function runGame(o) {
+  const g = gById(o, o.current), owner = pById(o, g.ownerId);
+  const players = o.participants.filter(p => p.id !== owner.id);
+  const sel = k => `<label>${k}. Platz</label><select id="pl${k}"><option value="">– wählen –</option>${players.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select>`;
+  return `<div class="card" style="text-align:center">
+      <div class="muted">Spiel ${g.no} von ${o.games.length}</div>
+      <div class="gtitle">${esc(g.title)}</div>
+      <div>Schiedsrichter: <b>${esc(owner.name)}</b></div>
+    </div>
+    <div class="card"><h2>Werkzeuge</h2><p class="muted" style="margin:0">Timer, Reihenfolge, Notizen und Buzzer folgen in den nächsten Schritten.</p></div>
+    <div class="card sel3"><h2>Ergebnis eintragen</h2>
+      <p class="muted" style="margin:0">Es muss eindeutig Platz 1–3 geben – bei Gleichstand erst ein Stechen spielen.</p>
+      ${sel(1)}${sel(2)}${sel(3)}
+      <button style="width:100%;margin-top:14px" onclick="saveResult('${g.id}')">Speichern &amp; weiter</button>
+    </div>
+    <div class="card"><button class="sec" onclick="postponeCurrent('${g.id}')">↩ Spiel zurückstellen (nicht heute)</button></div>
+    ${pauseCard()}`;
+}
+
+function runFinished(o) {
+  return `<div class="card"><h2>🏆 Endstand</h2>${rankList(o)}
+    <p class="muted" style="margin-bottom:0">Die animierte Siegerehrung mit Treppchen folgt in einem späteren Schritt.</p></div>
+    <div class="card"><a class="btn" href="#/o/${o.id}/details">Zur Olympiade</a></div>`;
+}
+const pauseCard = () => `<div class="card"><button class="sec" style="width:100%" onclick="pauseOly()">⏸ Für heute beenden (pausieren)</button></div>`;
+
+/* ============ Austragung: Aktionen ============ */
+function startOlympiad() {
+  const o = cur(); if (!o) return;
+  if (o.participants.length < 4) { toast('Mindestens 4 Teilnehmer nötig'); return; }
+  if (!confirm('Austragung starten? Danach ist die Teilnehmerliste gesperrt.')) return;
+  o.games = o.participants.map(p => ({ id: uid(), ownerId: p.id, title: '', state: 'open', no: null, result: null, sessionId: null }));
+  o.sessions = [{ id: uid(), date: o.date || todayISO(), place: o.place, startedAt: Date.now() }];
+  o.status = 'running'; o.current = null; o.counter = 0; o.titlesDone = false; ui.titleFor = null;
+  save(); location.hash = '#/o/' + o.id + '/run';
+}
+function openTitle(pid) {
+  const o = cur(), p = pById(o, pid), g = gOf(o, pid);
+  if (g.title && !confirm(`Bist du ${p.name}? Dein Titel wird gleich angezeigt.`)) return;
+  ui.titleFor = pid; render();
+  setTimeout(() => { const i = $('gtitle'); if (i) { i.focus(); i.select(); } }, 50);
+}
+function cancelTitle() { ui.titleFor = null; render(); }
+function saveTitle(pid) {
+  const o = cur(), g = gOf(o, pid), v = ($('gtitle').value || '').trim();
+  if (!v) { toast('Bitte einen Titel eingeben'); return; }
+  g.title = v; g.state = 'ready'; save(); ui.titleFor = null; render();
+  toast('Gespeichert – bitte Gerät weitergeben');
+}
+function postponeGame(gid) {
+  const o = cur(), g = gById(o, gid); g.state = 'postponed'; save(); ui.titleFor = null; render();
+}
+function unpostpone(gid) {
+  const o = cur(), g = gById(o, gid);
+  if (g.title) g.state = 'ready'; else { g.state = 'open'; o.titlesDone = false; }
+  save(); render();
+}
+function finishTitles() { const o = cur(); o.titlesDone = true; save(); render(); }
+
+function drawNext() {
+  const o = cur(), ready = o.games.filter(g => g.state === 'ready');
+  if (!ready.length) return;
+  const g = ready[Math.floor(Math.random() * ready.length)];
+  g.state = 'active'; g.no = ++o.counter; g.sessionId = (curSession(o) || {}).id; o.current = g.id; save();
+  playReveal(o, g, () => render());
+}
+function saveResult(gid) {
+  const o = cur(), g = gById(o, gid);
+  const r = { 1: $('pl1').value, 2: $('pl2').value, 3: $('pl3').value };
+  if (!r[1] || !r[2] || !r[3]) { toast('Bitte Platz 1, 2 und 3 auswählen'); return; }
+  if (new Set([r[1], r[2], r[3]]).size < 3) { toast('Jede Person nur einmal'); return; }
+  g.result = r; g.state = 'played'; o.current = null; save(); render(); window.scrollTo(0, 0);
+}
+function postponeCurrent(gid) {
+  const o = cur(), g = gById(o, gid);
+  if (!confirm('Dieses Spiel zurückstellen? Es kann später wieder aufgenommen werden.')) return;
+  g.state = 'postponed'; g.no = null; o.current = null; o.counter = Math.max(0, o.counter - 1); save(); render();
+}
+function pauseOly() {
+  const o = cur(); if (!confirm('Für heute beenden? Der Spielstand bleibt gespeichert.')) return;
+  const s = curSession(o); if (s) s.endedAt = Date.now();
+  o.status = 'paused'; save(); render(); window.scrollTo(0, 0);
+}
+function resumeOly() {
+  const o = cur();
+  o.sessions = o.sessions || []; o.sessions.push({ id: uid(), date: todayISO(), place: o.place, startedAt: Date.now() });
+  o.status = 'running'; save(); location.hash = '#/o/' + o.id + '/run'; render();
+}
+function finishOlympiad() {
+  const o = cur();
+  if (!confirm('Olympiade beenden und zur Siegerehrung?')) return;
+  const s = curSession(o); if (s && !s.endedAt) s.endedAt = Date.now();
+  o.status = 'finished'; save(); render(); window.scrollTo(0, 0);
+}
+
+/* ============ Auslosung & animierte Spielvorstellung ============ */
+function makeFX(cv) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+  const g = cv.getContext('2d');
+  let EP = [], ambient = 0, last = performance.now(), alive = true;
+  const rn = (a, c) => a + Math.random() * (c - a);
+  function ember(x, y, vx = rn(-.4, .4), vy = -rn(.4, 1.5)) {
+    if (EP.length < 380) EP.push({ k: 0, x, y, vx, vy, r: rn(1, 2.6), age: 0, max: rn(2600, 5600), ph: rn(0, 6.28), hue: rn(18, 42) });
+  }
+  function sparks(x, y, n, pw = 1) {
+    for (let i = 0; i < n && EP.length < 480; i++) {
+      const a = Math.random() * 6.283, v = rn(2, 11) * pw;
+      EP.push({ k: 1, x, y, px: x, py: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, age: 0, max: rn(650, 1600), w: rn(1, 2.4), hue: rn(26, 50) });
+    }
+  }
+  (function frame(now) {
+    if (!alive || !cv.isConnected) return;
+    const dt = Math.min(50, now - last), f = dt / 16.7; last = now;
+    let n = ambient * f;
+    while (n > 0) { if (Math.random() < Math.min(1, n)) ember(rn(0, innerWidth), innerHeight + 8); n -= 1; }
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, innerWidth, innerHeight);
+    g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+    EP = EP.filter(p => p.age < p.max && p.y > -40 && p.y < innerHeight + 60);
+    for (const p of EP) {
+      p.age += dt; const lt = p.age / p.max;
+      if (p.k === 0) {
+        p.x += p.vx * f + Math.sin(p.age * .002 + p.ph) * .35 * f; p.y += p.vy * f;
+        const al = (1 - lt) * (.55 + .45 * Math.sin(p.ph + p.age * .008));
+        g.fillStyle = `hsla(${p.hue},100%,${55 + 20 * (1 - lt)}%,${al * .22})`; g.beginPath(); g.arc(p.x, p.y, p.r * 3.6, 0, 6.283); g.fill();
+        g.fillStyle = `hsla(${p.hue},100%,72%,${al})`; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 6.283); g.fill();
+      } else {
+        p.px = p.x; p.py = p.y; p.vx *= Math.pow(.985, f); p.vy = p.vy * Math.pow(.985, f) + .16 * f;
+        p.x += p.vx * f; p.y += p.vy * f;
+        g.strokeStyle = `hsla(${p.hue},100%,${62 + 25 * (1 - lt)}%,${1 - lt})`; g.lineWidth = p.w;
+        g.beginPath(); g.moveTo(p.px, p.py); g.lineTo(p.x, p.y); g.stroke();
+      }
+    }
+    requestAnimationFrame(frame);
+  })(performance.now());
+  return { ember, sparks, rn, setAmbient: v => ambient = v, stop: () => { alive = false; } };
+}
+
+function playReveal(o, game, done) {
+  const owner = pById(o, game.ownerId);
+  const el = document.createElement('div');
+  el.id = 'reveal';
+  el.innerHTML = `<div class="rglow"></div><canvas></canvas>
+    <div class="rcenter">
+      <div class="rno">SPIEL ${game.no}</div>
+      <div class="rlabel">Schiedsrichter</div>
+      <div class="rslot">&nbsp;</div>
+      <div class="rlabel rl2">Das Spiel</div>
+      <div class="rtitle">${game.title.split(/\s+/).map((w, i) => `<span style="--i:${i}">${esc(w)}</span>`).join(' ')}</div>
+      <button class="rgo">Los geht’s →</button>
+    </div>`;
+  document.body.appendChild(el);
+  const fx = makeFX(el.querySelector('canvas'));
+  fx.setAmbient(.35);
+  const q = s => el.querySelector(s), rno = q('.rno'), l1 = q('.rlabel'), l2 = q('.rl2'), slot = q('.rslot'), ttl = q('.rtitle'), go = q('.rgo');
+  const center = n => { const r = n.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  const timers = []; const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+  let finished = false;
+
+  function ringAt(x, y, col, sc) {
+    const r = document.createElement('div'); r.className = 'ring'; r.style.setProperty('--rc', col || '#f5c542');
+    r.style.left = x + 'px'; r.style.top = y + 'px'; if (sc) r.style.setProperty('--rs', sc);
+    el.insertBefore(r, q('.rcenter')); setTimeout(() => r.remove(), 1800);
+  }
+
+  // Ablauf
+  at(250, () => rno.classList.add('in'));
+  at(750, () => { const [x, y] = center(rno); ringAt(x, y, '#ffcf5a', 6); fx.sparks(x, y, 70, 1.2); });
+  at(1500, () => { l1.classList.add('in'); slot.classList.add('in'); roulette(); });
+  function roulette() {
+    const names = o.participants.map(p => p.name);
+    const seq = []; let last = '';
+    for (let k = 0; k < 16; k++) { let n; do { n = names[Math.floor(Math.random() * names.length)]; } while (n === last && names.length > 1); seq.push(n); last = n; }
+    if (seq[seq.length - 1] === owner.name) seq[seq.length - 1] = names.find(n => n !== owner.name) || owner.name;
+    seq.push(owner.name);
+    let t = 0, d = 60;
+    seq.forEach((n, i) => {
+      t += d; d *= 1.13;
+      at(1500 + t, () => {
+        slot.textContent = n;
+        slot.animate([{ transform: 'translateY(-14px)', opacity: .5 }, { transform: 'none', opacity: 1 }], { duration: 120 });
+        if (i === seq.length - 1) {
+          slot.classList.add('land'); const [x, y] = center(slot);
+          ringAt(x, y, '#ffffff', 7); fx.sparks(x, y, 60, 1.1);
+          slot.animate([{ transform: 'scale(1.25)' }, { transform: 'none' }], { duration: 400, easing: 'ease-out' });
+        }
+      });
+    });
+    return 1500 + t;
+  }
+  const endRoulette = 1500 + (() => { let t = 0, d = 60; for (let i = 0; i < 17; i++) { t += d; d *= 1.13; } return t; })();
+  at(endRoulette + 700, () => { l2.classList.add('in'); ttl.classList.add('go'); });
+  at(endRoulette + 900 + 200 * game.title.split(/\s+/).length, () => {
+    const [x, y] = center(ttl); fx.sparks(x, y, 90, 1.4); ringAt(x, y, '#ffcf5a', 9); fx.setAmbient(.9);
+  });
+  at(endRoulette + 1300 + 200 * game.title.split(/\s+/).length, () => { finished = true; go.classList.add('in'); });
+
+  function finishNow() {
+    timers.forEach(clearTimeout);
+    rno.style.opacity = 1; rno.classList.remove('in'); l1.classList.add('in'); l2.classList.add('in');
+    slot.classList.add('in', 'land'); slot.textContent = owner.name;
+    ttl.classList.add('go'); ttl.querySelectorAll('span').forEach(s => { s.style.animation = 'none'; s.style.opacity = 1; s.style.transform = 'none'; });
+    go.classList.add('in'); fx.setAmbient(.9); finished = true;
+  }
+  function leave() {
+    fx.stop();
+    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 350, fill: 'forwards' }).onfinish = () => { el.remove(); done(); window.scrollTo(0, 0); };
+  }
+  el.addEventListener('click', e => { if (!finished) finishNow(); else if (e.target === go || e.target === el) leave(); });
 }
 
 /* ============ Export / Import ============ */
@@ -766,7 +1121,9 @@ function runIntro(variant = INTRO_VARIANT) {
 function leaveIntro(ov, app) {
   const il = ov.querySelector('.ilogo');
   const from = il.getBoundingClientRect();
-  const to = app.querySelector('.hero .logo').getBoundingClientRect();
+  const homeEl = app.querySelector('.hero .logo');
+  if (!homeEl) { ov.remove(); app.classList.remove('intro-pending', 'hide-logo'); return; }
+  const to = homeEl.getBoundingClientRect();
   const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
   const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
   const s = to.width / from.width;
