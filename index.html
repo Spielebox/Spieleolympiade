@@ -223,6 +223,9 @@ select:focus{border-color:var(--gold)}
 .rk.g{background:#f0b928;border:2px solid #c98f10;color:#3d2800;font-size:16px}
 .rk.s{background:#c3c9d3;border:2px solid #8f97a6;color:#2a2f3b;font-size:16px}
 .rk.b{background:#c9803f;border:2px solid #9a5a24;color:#2f1805;font-size:16px}
+.qchips{display:flex;flex-wrap:wrap;gap:8px}
+.qchip{min-height:40px;padding:8px 14px;border-radius:99px;background:#2a3170;border:1px solid #4a53a0;color:#fff;font-size:15px;font-weight:600;box-shadow:none}
+#dlg .dlgin{width:100%;box-sizing:border-box;margin:0 0 14px;font-size:17px;text-align:center}
 </style>
 </head>
 <body>
@@ -254,6 +257,19 @@ const save = () => Store.save(db);
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $ = id => document.getElementById(id);
+const nn = s => String(s || '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('de');
+function syncPlayers() {
+  if (!Array.isArray(db.players)) db.players = [];
+  db.olympiads.forEach(o => (o.participants || []).forEach(p => {
+    let pl = p.pid && db.players.find(x => x.id === p.pid);
+    if (!pl) {
+      pl = db.players.find(x => nn(x.name) === nn(p.name));
+      if (!pl) { pl = { id: p.pid || uid(), name: String(p.name).trim() }; db.players.push(pl); }
+      p.pid = pl.id;
+    }
+  }));
+}
+syncPlayers(); save();
 
 function toast(msg) {
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
@@ -262,7 +278,7 @@ function toast(msg) {
 
 
 /* ============ Eigene Dialoge (statt Systemfenster) ============ */
-function ask({ title = '', text = '', ok = 'OK', cancel = 'Abbrechen', danger = false, icon = '', extra = '' } = {}) {
+function ask({ title = '', text = '', ok = 'OK', cancel = 'Abbrechen', danger = false, icon = '', extra = '', locked = false } = {}) {
   return new Promise(res => {
     const old = $('dlg'); if (old) old.remove();
     const d = document.createElement('div'); d.id = 'dlg'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
@@ -270,10 +286,9 @@ function ask({ title = '', text = '', ok = 'OK', cancel = 'Abbrechen', danger = 
     document.body.appendChild(d);
     requestAnimationFrame(() => d.classList.add('show'));
     const done = v => { document.removeEventListener('keydown', key); d.classList.remove('show'); setTimeout(() => d.remove(), 200); res(v); };
-    const key = e => { if (e.key === 'Escape') done(!cancel); };
+    const key = e => { if (e.key === 'Escape' && !locked) done(!cancel); };
     document.addEventListener('keydown', key);
-    d.addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (b) done(b.dataset.v === '1'); else if (e.target === d && cancel) done(false); });
-    const b0 = d.querySelector('button'); if (b0) b0.focus();
+    d.addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (b) done(b.dataset.v === '1'); else if (e.target === d && cancel && !locked) done(false); });
   });
 }
 async function soundHint() {
@@ -281,6 +296,73 @@ async function soundHint() {
   const p = ask({ icon: '🔊', title: 'Ton einschalten', text: 'Die Spielvorstellungen laufen mit Musik. Sie ist auch bei Stummschaltung zu hören.\nBitte jetzt die Lautstärke passend einstellen.', ok: 'Verstanden', cancel: null, extra: '<div class="dwarn" id="dlgwarn" hidden>⚠ Die Datei action-stinger.mp3 wurde nicht gefunden. Sie muss im selben Ordner wie index.html liegen.</div>' });
   load.then(ok => { const w = $('dlgwarn'); if (w && !ok) w.hidden = false; });
   await p;
+}
+
+
+function askText({ title = '', text = '', value = '', ok = 'Speichern', cancel = 'Abbrechen', placeholder = '', validate = null } = {}) {
+  return new Promise(res => {
+    const old = $('dlg'); if (old) old.remove();
+    const d = document.createElement('div'); d.id = 'dlg'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+    d.innerHTML = `<div class="dbox">${title ? `<h3>${esc(title)}</h3>` : ''}${text ? `<p>${esc(text)}</p>` : ''}<input id="dlgin" class="dlgin" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off" maxlength="40"><div class="dwarn" id="dlgerr" hidden></div><div class="dbtns"><button data-v="1">${esc(ok)}</button><button class="sec" data-v="0">${esc(cancel)}</button></div></div>`;
+    document.body.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('show'));
+    const inp = d.querySelector('#dlgin'), err = d.querySelector('#dlgerr');
+    const done = v => { document.removeEventListener('keydown', key); d.classList.remove('show'); setTimeout(() => d.remove(), 200); res(v); };
+    const submit = () => { const v = inp.value.trim().replace(/\s+/g, ' '); const m = validate ? validate(v) : ''; if (m) { err.textContent = m; err.hidden = false; inp.focus(); return; } done(v); };
+    const key = e => { if (e.key === 'Escape') done(null); };
+    document.addEventListener('keydown', key);
+    inp.addEventListener('input', () => { err.hidden = true; });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    d.addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (b) { if (b.dataset.v === '1') submit(); else done(null); } else if (e.target === d) done(null); });
+    setTimeout(() => { inp.focus(); inp.select(); }, 60);
+  });
+}
+
+/* ============ Spielerverwaltung ============ */
+const playerOlyCount = pid => db.olympiads.filter(o => o.participants.some(p => p.pid === pid)).length;
+const sortedPlayers = () => [...db.players].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+function playerNameError(v, exceptId) {
+  if (!v) return 'Bitte einen Namen eingeben.';
+  const dup = db.players.find(x => x.id !== exceptId && nn(x.name) === nn(v));
+  return dup ? `„${dup.name}“ gibt es schon. Ergänze zum Beispiel den Nachnamen.` : '';
+}
+function cardSpieler() {
+  const L = sortedPlayers();
+  return `<div class="card" id="spieler">
+    <h2>Spielerverwaltung</h2>
+    <p class="muted">Alle Personen an einem Ort. Änderungen am Namen gelten überall, auch in früheren Olympiaden.</p>
+    <div class="row"><input id="newplayer" class="grow" placeholder="Neuer Spieler" onkeydown="if(event.key==='Enter')addPlayer()" autocomplete="off" maxlength="40"><button onclick="addPlayer()">Hinzufügen</button></div>
+    ${L.length ? `<ul class="plist">${L.map(p => { const n = playerOlyCount(p.id); return `<li><span class="grow">${esc(p.name)}<span class="muted" style="display:block;font-size:12px">${n ? n + (n === 1 ? ' Olympiade' : ' Olympiaden') : 'noch keine Olympiade'}</span></span><button class="icon" onclick="editPlayer('${p.id}')" aria-label="Name ändern">✎</button><button class="icon" onclick="deletePlayer('${p.id}')" aria-label="Löschen">✕</button></li>`; }).join('')}</ul>` : `<div class="empty">Noch keine Spieler angelegt.</div>`}
+  </div>`;
+}
+async function addPlayer() {
+  const inp = $('newplayer'); if (!inp) return;
+  const v = inp.value.trim().replace(/\s+/g, ' ');
+  const m = playerNameError(v, null);
+  if (m) { if (v) await ask({ icon: '👥', title: 'Name schon vergeben', text: m, ok: 'OK', cancel: null }); return; }
+  db.players.push({ id: uid(), name: v }); save(); render();
+  const again = $('newplayer'); if (again) again.focus();
+}
+async function editPlayer(id) {
+  const pl = db.players.find(x => x.id === id); if (!pl) return;
+  const v = await askText({ title: 'Name ändern', text: 'Gilt in allen Olympiaden, auch in früheren.', value: pl.name, validate: x => playerNameError(x, id) });
+  if (v === null || v === pl.name) return;
+  pl.name = v;
+  db.olympiads.forEach(o => o.participants.forEach(p => { if (p.pid === id) p.name = v; }));
+  save(); render(); toast('Name geändert');
+}
+async function deletePlayer(id) {
+  const pl = db.players.find(x => x.id === id); if (!pl) return;
+  const n = playerOlyCount(id);
+  if (n) { await ask({ icon: '🔒', title: `${pl.name} kann nicht gelöscht werden`, text: `Die Person ist in ${n} ${n === 1 ? 'Olympiade' : 'Olympiaden'} eingetragen. Entferne sie dort zuerst, oder ändere nur den Namen.`, ok: 'OK', cancel: null }); return; }
+  if (!await ask({ title: `${pl.name} löschen?`, text: 'Die Person wird aus der Spielerverwaltung entfernt.', ok: 'Löschen', cancel: 'Abbrechen', danger: true })) return;
+  db.players = db.players.filter(x => x.id !== id); save(); render();
+}
+function addKnownPlayer(pid) {
+  const o = cur(), pl = db.players.find(x => x.id === pid); if (!o || !pl || o.games.length) return;
+  if (o.participants.some(p => p.pid === pid)) return;
+  o.participants.push({ id: uid(), pid, name: pl.name, gameTitle: '', gameNote: '' });
+  save(); render();
 }
 
 function newOlympiad() {
@@ -350,6 +432,7 @@ function viewHome() {
       <div class="m">📅 ${esc(fmtShort(o.date))}${o.place ? ' · 📍 ' + esc(o.place) : ''}</div>
       <div class="m">👥 ${o.participants.length} Teilnehmer</div>
     </a>`).join('') : `<div class="empty">Noch keine Olympiade angelegt.<br>Leg oben die erste an!</div>`}
+  ${cardSpieler()}
   <div class="card">
     <h2>Datensicherung</h2>
     <p class="muted">Alle Daten liegen nur in diesem Browser. Exportiere sie regelmäßig oder wechsle damit das Gerät.</p>
@@ -428,7 +511,8 @@ function tabTeilnehmer(o) {
     ${o.games.length ? `<div class="warn">🔒 Die Austragung hat begonnen – die Teilnehmerliste ist gesperrt.</div>` : `<div class="row">
       <input id="pname" class="grow" placeholder="Name eintragen" onkeydown="if(event.key==='Enter')addParticipant()" autocomplete="off">
       <button onclick="addParticipant()">Hinzufügen</button>
-    </div>`}
+    </div>
+    ${(() => { const free = sortedPlayers().filter(pl => !o.participants.some(p => p.pid === pl.id)); return free.length ? `<div class="muted" style="margin:12px 0 6px;font-size:13px">Bekannte Spieler antippen:</div><div class="qchips">${free.map(pl => `<button class="qchip" onclick="addKnownPlayer('${pl.id}')">＋ ${esc(pl.name)}</button>`).join('')}</div>` : ''; })()}`}
     ${n ? `<ul class="plist">${o.participants.map((p, i) => `
       <li><span class="num">${i + 1}</span><span class="grow">${esc(p.name)}</span>
       ${o.games.length ? '' : `<button class="icon" onclick="removeParticipant('${p.id}')" aria-label="Entfernen">✕</button>`}</li>`).join('')}</ul>`
@@ -519,12 +603,20 @@ function setField(k, v) {
   const o = cur(); if (!o) return;
   o[k] = v; save();
 }
-function addParticipant() {
+async function addParticipant() {
   const o = cur(), inp = $('pname'); if (!o || !inp) return;
-  const name = inp.value.trim();
+  const name = inp.value.trim().replace(/\s+/g, ' ');
   if (!name) return;
-  if (o.participants.some(p => p.name.toLowerCase() === name.toLowerCase())) { toast('Diesen Namen gibt es schon'); return; }
-  o.participants.push({ id: uid(), name, gameTitle: '', gameNote: '' });
+  const pl = db.players.find(x => nn(x.name) === nn(name));
+  if (pl) {
+    if (o.participants.some(p => p.pid === pl.id)) { toast('Diesen Namen gibt es schon'); return; }
+    const change = await ask({ icon: '👥', title: 'Name schon vergeben', text: `„${pl.name}“ gibt es schon in der Spielerverwaltung. Ändere den neuen Namen, zum Beispiel mit Nachnamen, oder passe den vorhandenen an.`, ok: 'Neuen Namen ändern', cancel: 'Vorhandenen anpassen', locked: true });
+    if (change) { const i = $('pname'); if (i) i.focus(); }
+    else { location.hash = '#/'; setTimeout(() => editPlayer(pl.id), 150); }
+    return;
+  }
+  const np = { id: uid(), name }; db.players.push(np);
+  o.participants.push({ id: uid(), pid: np.id, name, gameTitle: '', gameNote: '' });
   save(); render();
   const again = $('pname'); if (again) again.focus();
 }
@@ -1094,7 +1186,8 @@ $('importFile').addEventListener('change', async e => {
     const have = new Set(db.olympiads.map(o => o.id));
     let added = 0;
     d.olympiads.forEach(o => { if (o && o.id && !have.has(o.id)) { db.olympiads.push(o); added++; } });
-    save(); render(); toast(added + ' Olympiade(n) importiert');
+    (d.players || []).forEach(pl => { if (pl && pl.id && pl.name && !db.players.some(x => x.id === pl.id || nn(x.name) === nn(pl.name))) db.players.push({ id: pl.id, name: String(pl.name) }); });
+    syncPlayers(); save(); render(); toast(added + ' Olympiade(n) importiert');
   } catch (err) { toast('Datei konnte nicht gelesen werden'); }
 });
 
