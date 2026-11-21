@@ -226,6 +226,7 @@ select:focus{border-color:var(--gold)}
 .qchips{display:flex;flex-wrap:wrap;gap:8px}
 .qchip{min-height:40px;padding:8px 14px;border-radius:99px;background:#2a3170;border:1px solid #4a53a0;color:#fff;font-size:15px;font-weight:600;box-shadow:none}
 #dlg .dlgin{width:100%;box-sizing:border-box;margin:0 0 14px;font-size:17px;text-align:center}
+.btnlink{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);color:var(--text);font-weight:700;font-size:16px;text-decoration:none}
 </style>
 </head>
 <body>
@@ -326,6 +327,7 @@ function playerNameError(v, exceptId) {
   const dup = db.players.find(x => x.id !== exceptId && nn(x.name) === nn(v));
   return dup ? `„${dup.name}“ gibt es schon. Ergänze zum Beispiel den Nachnamen.` : '';
 }
+function viewSpieler() { return `<a class="back" href="#/">‹ Alle Olympiaden</a>${cardSpieler()}`; }
 function cardSpieler() {
   const L = sortedPlayers();
   return `<div class="card" id="spieler">
@@ -385,13 +387,14 @@ function route() {
     const o = db.olympiads.find(x => x.id === h[1]);
     if (o) return { o, tab: h[2] || 'details' };
   }
+  if (h[0] === 'spieler') return { o: null, page: 'spieler' };
   return { o: null };
 }
 const cur = () => route().o;
 
 function render() {
   const r = route();
-  $('app').innerHTML = r.o ? viewOlympiad(r.o, r.tab) : viewHome();
+  $('app').innerHTML = r.o ? viewOlympiad(r.o, r.tab) : r.page === 'spieler' ? viewSpieler() : viewHome();
   if (r.o && r.tab === 'run') AudioKit.load();
 }
 window.addEventListener('hashchange', render);
@@ -432,7 +435,7 @@ function viewHome() {
       <div class="m">📅 ${esc(fmtShort(o.date))}${o.place ? ' · 📍 ' + esc(o.place) : ''}</div>
       <div class="m">👥 ${o.participants.length} Teilnehmer</div>
     </a>`).join('') : `<div class="empty">Noch keine Olympiade angelegt.<br>Leg oben die erste an!</div>`}
-  ${cardSpieler()}
+  <div class="card"><a class="btnlink sec" href="#/spieler">👥 Spielerverwaltung <span class="muted">(${db.players.length})</span></a></div>
   <div class="card">
     <h2>Datensicherung</h2>
     <p class="muted">Alle Daten liegen nur in diesem Browser. Exportiere sie regelmäßig oder wechsle damit das Gerät.</p>
@@ -612,7 +615,7 @@ async function addParticipant() {
     if (o.participants.some(p => p.pid === pl.id)) { toast('Diesen Namen gibt es schon'); return; }
     const change = await ask({ icon: '👥', title: 'Name schon vergeben', text: `„${pl.name}“ gibt es schon in der Spielerverwaltung. Ändere den neuen Namen, zum Beispiel mit Nachnamen, oder passe den vorhandenen an.`, ok: 'Neuen Namen ändern', cancel: 'Vorhandenen anpassen', locked: true });
     if (change) { const i = $('pname'); if (i) i.focus(); }
-    else { location.hash = '#/'; setTimeout(() => editPlayer(pl.id), 150); }
+    else { location.hash = '#/spieler'; setTimeout(() => editPlayer(pl.id), 150); }
     return;
   }
   const np = { id: uid(), name }; db.players.push(np);
