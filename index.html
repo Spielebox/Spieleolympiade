@@ -219,6 +219,10 @@ select:focus{border-color:var(--gold)}
 .pchip{display:flex;align-items:center;gap:8px;min-height:46px;padding:10px 12px;border-radius:12px;background:#2a3170;border:1px solid #4a53a0;color:#fff;font-size:16px;font-weight:600;text-align:left;box-shadow:none;width:100%}
 .pchip.on{background:var(--bg2);border-style:dashed;border-color:var(--line);color:#aab2e6;font-weight:500}
 .pchip .medal{margin-left:auto;width:16px;height:16px;flex:none}
+.rk{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:15px;font-weight:600;box-sizing:border-box;background:var(--bg2);border:1px solid var(--line);color:var(--gold2)}
+.rk.g{background:#f0b928;border:2px solid #c98f10;color:#3d2800;font-size:16px}
+.rk.s{background:#c3c9d3;border:2px solid #8f97a6;color:#2a2f3b;font-size:16px}
+.rk.b{background:#c9803f;border:2px solid #9a5a24;color:#2f1805;font-size:16px}
 </style>
 </head>
 <body>
@@ -584,7 +588,7 @@ function medalRow(x) {
 }
 function rankList(o) {
   return `<ul class="plist rank">${ranking(o).map(x => `
-    <li><span class="num ${x.rank === 1 && x.pts > 0 ? 'first' : ''}">${x.rank}</span><span class="grow">${esc(x.p.name)}${medalRow(x)}</span><b>${x.pts}</b></li>`).join('')}</ul>`;
+    <li><span class="rk ${x.pts > 0 && x.rank <= 3 ? ['', 'g', 's', 'b'][x.rank] : ''}">${x.rank}</span><span class="grow">${esc(x.p.name)}${medalRow(x)}</span><b>${x.pts}</b></li>`).join('')}</ul>`;
 }
 
 /* ============ Austragung: Ansichten ============ */
