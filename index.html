@@ -236,6 +236,11 @@ select:focus{border-color:var(--gold)}
 .avcols{display:flex;gap:8px;margin-top:10px;justify-content:space-between}
 .avc{width:30px;height:30px;padding:0;border-radius:50%;border:2px solid transparent;box-shadow:none}
 .avc.on{outline:2px solid #fff;outline-offset:2px}
+.ava.r{margin:0 12px 0 4px}
+.plist li:has(.pdet){flex-wrap:wrap}
+.pdet{flex-basis:100%;margin:8px 0 2px;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,.22);text-align:left}
+.pdl{font-size:12px;color:#aab2e6;margin:6px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+.pgames{list-style:none;margin:0;padding:0}.pgames li{display:block;padding:5px 0;border:0;font-size:14px}
 </style>
 </head>
 <body>
@@ -345,9 +350,28 @@ function playerNameError(v, exceptId, label = 'Name') {
   return dup ? `„${v}“ gibt es schon${dup.archived ? ' (archiviert)' : ''}. Ergänze zum Beispiel den Nachnamen.` : '';
 }
 function viewSpieler() { return `<a class="back" href="#/">‹ Alle Olympiaden</a>${cardSpieler()}`; }
+const openPlayers = new Set();
+function togglePlayer(id) { openPlayers.has(id) ? openPlayers.delete(id) : openPlayers.add(id); render(); }
+function playerDetails(pl) {
+  const med = [0, 0, 0], games = [];
+  db.olympiads.forEach(o => {
+    const part = o.participants.find(x => x.pid === pl.id); if (!part) return;
+    o.games.forEach(g => {
+      if (g.state === 'played' && g.result) [1, 2, 3].forEach(k => { if (g.result[k] === part.id) med[k - 1]++; });
+      if (g.ownerId === part.id && g.title) {
+        const w = g.state === 'played' && g.result && g.result[1] ? o.participants.find(x => x.id === g.result[1]) : null;
+        games.push({ title: g.title, oly: o.name, state: g.state, winner: w ? w.name : '' });
+      }
+    });
+  });
+  const mh = med.map((n, i) => n ? `<span class="mgrp">${Array.from({ length: n }, () => `<i class="medal ${['gold', 'silver', 'bronze'][i]}"></i>`).join('')}</span>` : '').join('');
+  const st = { played: 'gespielt', postponed: 'zurückgestellt' };
+  return `<div class="pdet"><div class="pdl">Medaillen</div>${mh ? `<div class="medals">${mh}</div>` : '<div class="muted" style="font-size:13px">Noch keine Medaille.</div>'}
+    <div class="pdl">Vorgestellte Spiele</div>${games.length ? `<ul class="pgames">${games.map(g => `<li><b>${esc(g.title)}</b><span class="muted"> · ${esc(g.oly)}${st[g.state] ? ' · ' + st[g.state] : ''}${g.winner ? ' · Sieger: ' + esc(g.winner) : ''}</span></li>`).join('')}</ul>` : '<div class="muted" style="font-size:13px">Noch kein Spiel vorgestellt.</div>'}</div>`;
+}
 function cardSpieler() {
   const L = sortedPlayers(), A = sortedPlayers(true);
-  const row = (p, arch) => { const n = playerOlyCount(p.id); return `<li>${ava(p.id)}<span class="grow">${esc(p.name)}${p.nick ? ` <span class="muted">„${esc(p.nick)}“</span>` : ''}<span class="muted" style="display:block;font-size:12px">${n ? n + (n === 1 ? ' Olympiade' : ' Olympiaden') : 'noch keine Olympiade'}</span></span><button class="icon" onclick="editPlayer('${p.id}')" aria-label="Bearbeiten">✎</button><button class="icon" onclick="archivePlayer('${p.id}')" aria-label="${arch ? 'Wiederherstellen' : 'Archivieren'}">${arch ? '↩' : '📦'}</button><button class="icon" onclick="deletePlayer('${p.id}')" aria-label="Löschen">✕</button></li>`; };
+  const row = (p, arch) => { const n = playerOlyCount(p.id); const op = openPlayers.has(p.id); return `<li>${ava(p.id)}<span class="grow" style="cursor:pointer" onclick="togglePlayer('${p.id}')">${op ? '▾' : '▸'} ${esc(p.name)}${p.nick ? ` <span class="muted">„${esc(p.nick)}“</span>` : ''}<span class="muted" style="display:block;font-size:12px">${n ? n + (n === 1 ? ' Olympiade' : ' Olympiaden') : 'noch keine Olympiade'}</span></span><button class="icon" onclick="editPlayer('${p.id}')" aria-label="Bearbeiten">✎</button><button class="icon" onclick="archivePlayer('${p.id}')" aria-label="${arch ? 'Wiederherstellen' : 'Archivieren'}">${arch ? '↩' : '📦'}</button><button class="icon" onclick="deletePlayer('${p.id}')" aria-label="Löschen">✕</button>${op ? playerDetails(p) : ''}</li>`; };
   return `<div class="card" id="spieler">
     <h2>Spielerverwaltung</h2>
     <p class="muted">Alle Personen an einem Ort. Änderungen gelten überall, auch in früheren Olympiaden.</p>
@@ -752,7 +776,7 @@ function medalRow(x) {
 }
 function rankList(o) {
   return `<ul class="plist rank">${ranking(o).map(x => `
-    <li><span class="rk ${x.pts > 0 && x.rank <= 3 ? ['', 'g', 's', 'b'][x.rank] : ''}">${x.rank}</span><span class="grow">${ava(x.p.pid)}${esc(x.p.name)}${medalRow(x)}</span><b>${x.pts}</b></li>`).join('')}</ul>`;
+    <li><span class="rk ${x.pts > 0 && x.rank <= 3 ? ['', 'g', 's', 'b'][x.rank] : ''}">${x.rank}</span><span class="grow">${esc(x.p.name)}${medalRow(x)}</span>${ava(x.p.pid).replace("class=\"ava\"", "class=\"ava r\"")}<b>${x.pts}</b></li>`).join('')}</ul>`;
 }
 
 /* ============ Austragung: Ansichten ============ */
