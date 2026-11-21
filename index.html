@@ -166,7 +166,9 @@ select:focus{border-color:var(--gold)}
 #reveal .rblock{position:absolute;left:50%;top:var(--bt);width:var(--bw);margin-left:calc(var(--bw) / -2);aspect-ratio:900/533;perspective:1400px;z-index:2}
 #reveal .flip{position:absolute;inset:0;transform-style:preserve-3d}
 #reveal .face{position:absolute;inset:0;background:url(block-gold.webp) center/100% 100% no-repeat;-webkit-backface-visibility:hidden;backface-visibility:hidden;font-size:0;color:transparent}
-#reveal .back{transform:rotateY(180deg)}
+#reveal .back{transform:rotateY(180deg);background:none}
+#reveal .back::before{content:'';position:absolute;inset:0;background:url(block-gold.webp) center/100% 100% no-repeat;transform:scaleX(-1)}
+#reveal .face .ptx{-webkit-backface-visibility:hidden;backface-visibility:hidden}
 #reveal .rgo{position:absolute;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .6s;font-size:17px;padding:13px 26px;white-space:nowrap;z-index:4}
 #reveal .rgo.in{opacity:1;pointer-events:auto}
 @media (orientation:landscape){
@@ -184,6 +186,13 @@ select:focus{border-color:var(--gold)}
   background:radial-gradient(circle,transparent 65%,var(--rc,#f5c542) 67%,transparent 70%);opacity:0;animation:ring 1.6s ease-out forwards;pointer-events:none}
 .intro-pending .hero h1,.intro-pending .hero p,.intro-pending>.card,.intro-pending>.empty,.intro-pending>.olycard{opacity:0}
 .hide-logo .hero .logo{visibility:hidden}
+.medals{display:flex;flex-wrap:wrap;gap:3px 7px;margin-top:4px}
+.mgrp{display:inline-flex}
+.mgrp .medal+.medal{margin-left:-7px}
+.medal{display:block;width:18px;height:18px;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.55),inset 0 0 0 1.5px var(--rim),inset 0 0 0 4px rgba(255,255,255,.18);background:radial-gradient(circle at 32% 28%,var(--hi) 0,var(--mid) 45%,var(--lo) 100%)}
+.medal.gold{--hi:#fff3b0;--mid:#f0b928;--lo:#9a6a08;--rim:#c98f10}
+.medal.silver{--hi:#ffffff;--mid:#c3c9d3;--lo:#6f7787;--rim:#8f97a6}
+.medal.bronze{--hi:#f6c79a;--mid:#c9803f;--lo:#6e3d15;--rim:#9a5a24}
 </style>
 </head>
 <body>
@@ -506,9 +515,9 @@ function scores(o) {
 }
 function ranking(o) {
   const m = scores(o), c = {};
-  o.participants.forEach(p => c[p.id] = [0, 0]);
-  o.games.forEach(g => { if (g.state === 'played' && g.result) [1, 2].forEach(k => { const pid = g.result[k]; if (pid in c) c[pid][k - 1]++; }); });
-  const arr = o.participants.map(p => ({ p, pts: m[p.id], c1: c[p.id][0], c2: c[p.id][1] }));
+  o.participants.forEach(p => c[p.id] = [0, 0, 0]);
+  o.games.forEach(g => { if (g.state === 'played' && g.result) [1, 2, 3].forEach(k => { const pid = g.result[k]; if (pid in c) c[pid][k - 1]++; }); });
+  const arr = o.participants.map(p => ({ p, pts: m[p.id], c1: c[p.id][0], c2: c[p.id][1], c3: c[p.id][2] }));
   const key = x => x.pts + '|' + x.c1 + '|' + x.c2;
   arr.sort((a, b) => b.pts - a.pts || b.c1 - a.c1 || b.c2 - a.c2 || a.p.name.localeCompare(b.p.name, 'de'));
   arr.forEach((x, i) => {
@@ -519,9 +528,14 @@ function ranking(o) {
   });
   return arr;
 }
+function medalRow(x) {
+  const g = (n, cls) => n ? `<span class="mgrp">${Array.from({ length: n }, () => `<i class="medal ${cls}"></i>`).join('')}</span>` : '';
+  const h = g(x.c1, 'gold') + g(x.c2, 'silver') + g(x.c3, 'bronze');
+  return h ? `<span class="medals" aria-label="${x.c1}× Gold, ${x.c2}× Silber, ${x.c3}× Bronze">${h}</span>` : '';
+}
 function rankList(o) {
   return `<ul class="plist rank">${ranking(o).map(x => `
-    <li><span class="num ${x.rank === 1 && x.pts > 0 ? 'first' : ''}">${x.rank}</span><span class="grow">${esc(x.p.name)}${x.ptsTie && x.pts > 0 ? `<span class="muted" style="display:block;font-size:12px">${x.c1}× Platz 1 · ${x.c2}× Platz 2</span>` : ''}</span><b>${x.pts}</b></li>`).join('')}</ul>`;
+    <li><span class="num ${x.rank === 1 && x.pts > 0 ? 'first' : ''}">${x.rank}</span><span class="grow">${esc(x.p.name)}${medalRow(x)}</span><b>${x.pts}</b></li>`).join('')}</ul>`;
 }
 
 /* ============ Austragung: Ansichten ============ */
@@ -894,7 +908,7 @@ function playReveal(o, game, done) {
     el.insertBefore(r, stage); setTimeout(() => r.remove(), 1800);
   }
   const fontP = (document.fonts ? document.fonts.load("40px 'Archivo Black'").catch(() => {}) : Promise.resolve()).then(() => {
-    try { mountPlateText(front, 'SPIEL ' + game.no, PLATE_STYLE); mountPlateText(back, fitTitleLines(game.title), { ...PLATE_STYLE, size: .7, hmax: .8 }); }
+    try { mountPlateText(front, 'SPIEL ' + game.no, PLATE_STYLE); mountPlateText(back, fitTitleLines(game.title), { ...PLATE_STYLE, size: .7, hmax: .8, q: [[.12,.225],[.88,.14],[.88,.84],[.12,.825]] }); }
     catch (e) { back.textContent = game.title; }
   });
   const H0 = block.getBoundingClientRect().bottom + 80;
@@ -939,7 +953,7 @@ function playReveal(o, game, done) {
   function tick() {
     if (!el.isConnected) return;
     const t = fin ? 99 : (performance.now() - p0) / 1000;
-    block.style.transform = blockTf(t); flip.style.transform = flipTf(t);
+    block.style.transform = blockTf(t); flip.style.transform = flipTf(t); { const fp = (t - RT.flip0) / (RT.flip1 - RT.flip0), bk = fp >= .5; front.style.visibility = bk ? 'hidden' : 'visible'; back.style.visibility = bk ? 'visible' : 'hidden'; }
     if (!fin) {
       for (const c of cues) if (!c.done && t >= c.t) { c.done = true; c.fn(); }
       let k = 0; while (k < N && times[k] <= t) k++;
