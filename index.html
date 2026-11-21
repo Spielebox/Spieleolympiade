@@ -227,6 +227,15 @@ select:focus{border-color:var(--gold)}
 .qchip{min-height:40px;padding:8px 14px;border-radius:99px;background:#2a3170;border:1px solid #4a53a0;color:#fff;font-size:15px;font-weight:600;box-shadow:none}
 #dlg .dlgin{width:100%;box-sizing:border-box;margin:0 0 14px;font-size:17px;text-align:center}
 .btnlink{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;border-radius:12px;background:var(--bg2);border:1px solid var(--line);color:var(--text);font-weight:700;font-size:16px;text-decoration:none}
+.ava{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;font-size:15px;flex:none;vertical-align:middle;margin-right:8px;line-height:1}
+.qchip .ava{width:22px;height:22px;font-size:13px;margin-right:6px}
+.dlab{display:block;font-size:13px;color:#aab2e6;margin:10px 0 4px}
+.avgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.avb{height:38px;padding:0;border-radius:10px;background:#2a3170;border:1px solid #4a53a0;font-size:20px;box-shadow:none;color:#fff}
+.avb.on{outline:2px solid #fff;outline-offset:1px;background:#3a4285}
+.avcols{display:flex;gap:8px;margin-top:10px;justify-content:space-between}
+.avc{width:30px;height:30px;padding:0;border-radius:50%;border:2px solid transparent;box-shadow:none}
+.avc.on{outline:2px solid #fff;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -320,22 +329,32 @@ function askText({ title = '', text = '', value = '', ok = 'Speichern', cancel =
 }
 
 /* ============ Spielerverwaltung ============ */
+const AVATAR_EMOJI = ['🦁','🐯','🐻','🦊','🐼','🐸','🦄','🐙','🦉','🐧','🦖','🐺','🚀','⚡','🔥','⭐','👑','🎲','🎯','🍀'];
+const AVATAR_COLORS = ['#f5c542','#ff7a59','#e84a5f','#c04fd6','#6c5ce7','#3b82f6','#14b8a6','#4caf50'];
 const playerOlyCount = pid => db.olympiads.filter(o => o.participants.some(p => p.pid === pid)).length;
-const sortedPlayers = () => [...db.players].sort((a, b) => a.name.localeCompare(b.name, 'de'));
-function playerNameError(v, exceptId) {
-  if (!v) return 'Bitte einen Namen eingeben.';
-  const dup = db.players.find(x => x.id !== exceptId && nn(x.name) === nn(v));
-  return dup ? `„${dup.name}“ gibt es schon. Ergänze zum Beispiel den Nachnamen.` : '';
+const sortedPlayers = (arch = false) => db.players.filter(p => !!p.archived === arch).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+const dispName = pl => pl.nick || pl.name;
+function ava(pid) {
+  const pl = db.players.find(x => x.id === pid);
+  return pl && pl.emoji ? `<span class="ava" style="background:${pl.color || '#3a4285'}">${pl.emoji}</span>` : '';
+}
+/* Prüft, ob der Name (oder Spitzname) schon bei einer anderen Person vorkommt. */
+function playerNameError(v, exceptId, label = 'Name') {
+  if (!v) return label === 'Name' ? 'Bitte einen Namen eingeben.' : '';
+  const dup = db.players.find(x => x.id !== exceptId && (nn(x.name) === nn(v) || (x.nick && nn(x.nick) === nn(v))));
+  return dup ? `„${v}“ gibt es schon${dup.archived ? ' (archiviert)' : ''}. Ergänze zum Beispiel den Nachnamen.` : '';
 }
 function viewSpieler() { return `<a class="back" href="#/">‹ Alle Olympiaden</a>${cardSpieler()}`; }
 function cardSpieler() {
-  const L = sortedPlayers();
+  const L = sortedPlayers(), A = sortedPlayers(true);
+  const row = (p, arch) => { const n = playerOlyCount(p.id); return `<li>${ava(p.id)}<span class="grow">${esc(p.name)}${p.nick ? ` <span class="muted">„${esc(p.nick)}“</span>` : ''}<span class="muted" style="display:block;font-size:12px">${n ? n + (n === 1 ? ' Olympiade' : ' Olympiaden') : 'noch keine Olympiade'}</span></span><button class="icon" onclick="editPlayer('${p.id}')" aria-label="Bearbeiten">✎</button><button class="icon" onclick="archivePlayer('${p.id}')" aria-label="${arch ? 'Wiederherstellen' : 'Archivieren'}">${arch ? '↩' : '📦'}</button><button class="icon" onclick="deletePlayer('${p.id}')" aria-label="Löschen">✕</button></li>`; };
   return `<div class="card" id="spieler">
     <h2>Spielerverwaltung</h2>
-    <p class="muted">Alle Personen an einem Ort. Änderungen am Namen gelten überall, auch in früheren Olympiaden.</p>
+    <p class="muted">Alle Personen an einem Ort. Änderungen gelten überall, auch in früheren Olympiaden.</p>
     <div class="row"><input id="newplayer" class="grow" placeholder="Neuer Spieler" onkeydown="if(event.key==='Enter')addPlayer()" autocomplete="off" maxlength="40"><button onclick="addPlayer()">Hinzufügen</button></div>
-    ${L.length ? `<ul class="plist">${L.map(p => { const n = playerOlyCount(p.id); return `<li><span class="grow">${esc(p.name)}<span class="muted" style="display:block;font-size:12px">${n ? n + (n === 1 ? ' Olympiade' : ' Olympiaden') : 'noch keine Olympiade'}</span></span><button class="icon" onclick="editPlayer('${p.id}')" aria-label="Name ändern">✎</button><button class="icon" onclick="deletePlayer('${p.id}')" aria-label="Löschen">✕</button></li>`; }).join('')}</ul>` : `<div class="empty">Noch keine Spieler angelegt.</div>`}
-  </div>`;
+    ${L.length ? `<ul class="plist">${L.map(p => row(p, false)).join('')}</ul>` : `<div class="empty">Noch keine Spieler angelegt.</div>`}
+  </div>
+  ${A.length ? `<div class="card"><h2>Archiviert</h2><p class="muted">Nicht mehr im Schnellzugriff, aber in früheren Olympiaden und der Wall of Fame erhalten.</p><ul class="plist">${A.map(p => row(p, true)).join('')}</ul></div>` : ''}`;
 }
 async function addPlayer() {
   const inp = $('newplayer'); if (!inp) return;
@@ -345,25 +364,71 @@ async function addPlayer() {
   db.players.push({ id: uid(), name: v }); save(); render();
   const again = $('newplayer'); if (again) again.focus();
 }
+function playerDialog(pl) {
+  return new Promise(res => {
+    const old = $('dlg'); if (old) old.remove();
+    let emoji = pl.emoji || '', color = pl.color || AVATAR_COLORS[0];
+    const d = document.createElement('div'); d.id = 'dlg'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+    d.innerHTML = `<div class="dbox" style="text-align:left;max-height:92vh;overflow:auto">
+      <h3 style="text-align:center">Spieler bearbeiten</h3>
+      <label class="dlab">Name</label><input id="pdn" class="dlgin" style="text-align:left;margin:0 0 4px" value="${esc(pl.name)}" maxlength="40" autocomplete="off">
+      <div class="dwarn" id="pdne" hidden></div>
+      <label class="dlab">Spitzname (wird in der Olympiade angezeigt)</label><input id="pdk" class="dlgin" style="text-align:left;margin:0 0 4px" value="${esc(pl.nick || '')}" placeholder="optional" maxlength="20" autocomplete="off">
+      <div class="dwarn" id="pdke" hidden></div>
+      <label class="dlab">Avatar</label>
+      <div class="avgrid" id="pdem"><button type="button" class="avb ${emoji ? '' : 'on'}" data-e="">–</button>${AVATAR_EMOJI.map(e => `<button type="button" class="avb ${e === emoji ? 'on' : ''}" data-e="${e}">${e}</button>`).join('')}</div>
+      <div class="avcols" id="pdco">${AVATAR_COLORS.map(c => `<button type="button" class="avc ${c === color ? 'on' : ''}" data-c="${c}" style="background:${c}" aria-label="Farbe"></button>`).join('')}</div>
+      <div class="dbtns" style="margin-top:14px"><button data-v="1">Speichern</button><button class="sec" data-v="0">Abbrechen</button></div></div>`;
+    document.body.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('show'));
+    const done = v => { document.removeEventListener('keydown', key); d.classList.remove('show'); setTimeout(() => d.remove(), 200); res(v); };
+    const key = e => { if (e.key === 'Escape') done(null); };
+    document.addEventListener('keydown', key);
+    const norm = s => s.trim().replace(/\s+/g, ' ');
+    const submit = () => {
+      const name = norm($('pdn').value), nick = norm($('pdk').value);
+      const e1 = playerNameError(name, pl.id), e2 = nick && nn(nick) !== nn(name) ? playerNameError(nick, pl.id, 'Spitzname') : '';
+      $('pdne').textContent = e1; $('pdne').hidden = !e1; $('pdke').textContent = e2; $('pdke').hidden = !e2;
+      if (e1 || e2) return;
+      done({ name, nick: nn(nick) === nn(name) ? '' : nick, emoji, color });
+    };
+    d.addEventListener('click', e => {
+      const eb = e.target.closest('.avb'), cb = e.target.closest('.avc'), b = e.target.closest('button[data-v]');
+      if (eb) { emoji = eb.dataset.e; d.querySelectorAll('.avb').forEach(x => x.classList.toggle('on', x === eb)); }
+      else if (cb) { color = cb.dataset.c; d.querySelectorAll('.avc').forEach(x => x.classList.toggle('on', x === cb)); }
+      else if (b) { if (b.dataset.v === '1') submit(); else done(null); }
+      else if (e.target === d) done(null);
+    });
+    d.querySelectorAll('.dlgin').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); }));
+  });
+}
+function applyPlayer(pl) {
+  db.olympiads.forEach(o => o.participants.forEach(p => { if (p.pid === pl.id) p.name = dispName(pl); }));
+}
 async function editPlayer(id) {
   const pl = db.players.find(x => x.id === id); if (!pl) return;
-  const v = await askText({ title: 'Name ändern', text: 'Gilt in allen Olympiaden, auch in früheren.', value: pl.name, validate: x => playerNameError(x, id) });
-  if (v === null || v === pl.name) return;
-  pl.name = v;
-  db.olympiads.forEach(o => o.participants.forEach(p => { if (p.pid === id) p.name = v; }));
-  save(); render(); toast('Name geändert');
+  const r = await playerDialog(pl); if (!r) return;
+  Object.assign(pl, r); if (!r.emoji) { delete pl.emoji; delete pl.color; }
+  if (!pl.nick) delete pl.nick;
+  applyPlayer(pl); save(); render(); toast('Gespeichert');
+}
+async function archivePlayer(id) {
+  const pl = db.players.find(x => x.id === id); if (!pl) return;
+  if (pl.archived) { delete pl.archived; save(); render(); toast(`${pl.name} ist wieder aktiv`); return; }
+  if (!await ask({ icon: '📦', title: `${pl.name} archivieren?`, text: 'Die Person verschwindet aus dem Schnellzugriff. Frühere Olympiaden und die Wall of Fame bleiben erhalten.', ok: 'Archivieren', cancel: 'Abbrechen' })) return;
+  pl.archived = true; save(); render();
 }
 async function deletePlayer(id) {
   const pl = db.players.find(x => x.id === id); if (!pl) return;
   const n = playerOlyCount(id);
-  if (n) { await ask({ icon: '🔒', title: `${pl.name} kann nicht gelöscht werden`, text: `Die Person ist in ${n} ${n === 1 ? 'Olympiade' : 'Olympiaden'} eingetragen. Entferne sie dort zuerst, oder ändere nur den Namen.`, ok: 'OK', cancel: null }); return; }
+  if (n) { await ask({ icon: '🔒', title: `${pl.name} kann nicht gelöscht werden`, text: `Die Person ist in ${n} ${n === 1 ? 'Olympiade' : 'Olympiaden'} eingetragen. Archiviere sie stattdessen, dann bleibt alles erhalten.`, ok: 'OK', cancel: null }); return; }
   if (!await ask({ title: `${pl.name} löschen?`, text: 'Die Person wird aus der Spielerverwaltung entfernt.', ok: 'Löschen', cancel: 'Abbrechen', danger: true })) return;
   db.players = db.players.filter(x => x.id !== id); save(); render();
 }
 function addKnownPlayer(pid) {
   const o = cur(), pl = db.players.find(x => x.id === pid); if (!o || !pl || o.games.length) return;
   if (o.participants.some(p => p.pid === pid)) return;
-  o.participants.push({ id: uid(), pid, name: pl.name, gameTitle: '', gameNote: '' });
+  o.participants.push({ id: uid(), pid, name: dispName(pl), gameTitle: '', gameNote: '' });
   save(); render();
 }
 
@@ -515,9 +580,9 @@ function tabTeilnehmer(o) {
       <input id="pname" class="grow" placeholder="Name eintragen" onkeydown="if(event.key==='Enter')addParticipant()" autocomplete="off">
       <button onclick="addParticipant()">Hinzufügen</button>
     </div>
-    ${(() => { const free = sortedPlayers().filter(pl => !o.participants.some(p => p.pid === pl.id)); return free.length ? `<div class="muted" style="margin:12px 0 6px;font-size:13px">Bekannte Spieler antippen:</div><div class="qchips">${free.map(pl => `<button class="qchip" onclick="addKnownPlayer('${pl.id}')">＋ ${esc(pl.name)}</button>`).join('')}</div>` : ''; })()}`}
+    ${(() => { const free = sortedPlayers().filter(pl => !o.participants.some(p => p.pid === pl.id)); return free.length ? `<div class="muted" style="margin:12px 0 6px;font-size:13px">Bekannte Spieler antippen:</div><div class="qchips">${free.map(pl => `<button class="qchip" onclick="addKnownPlayer('${pl.id}')">${ava(pl.id) || '＋ '}${esc(dispName(pl))}</button>`).join('')}</div>` : ''; })()}`}
     ${n ? `<ul class="plist">${o.participants.map((p, i) => `
-      <li><span class="num">${i + 1}</span><span class="grow">${esc(p.name)}</span>
+      <li><span class="num">${i + 1}</span><span class="grow">${ava(p.pid)}${esc(p.name)}</span>
       ${o.games.length ? '' : `<button class="icon" onclick="removeParticipant('${p.id}')" aria-label="Entfernen">✕</button>`}</li>`).join('')}</ul>`
       : `<div class="empty">Noch niemand eingetragen.</div>`}
     ${n === 0 ? '' : n < 4
@@ -610,9 +675,13 @@ async function addParticipant() {
   const o = cur(), inp = $('pname'); if (!o || !inp) return;
   const name = inp.value.trim().replace(/\s+/g, ' ');
   if (!name) return;
-  const pl = db.players.find(x => nn(x.name) === nn(name));
+  const pl = db.players.find(x => nn(x.name) === nn(name) || (x.nick && nn(x.nick) === nn(name)));
   if (pl) {
     if (o.participants.some(p => p.pid === pl.id)) { toast('Diesen Namen gibt es schon'); return; }
+    if (pl.archived) {
+      if (!await ask({ icon: '📦', title: 'Archivierter Spieler', text: `„${pl.name}“ ist archiviert. Wiederherstellen und hinzufügen?`, ok: 'Wiederherstellen', cancel: 'Abbrechen' })) return;
+      delete pl.archived; addKnownPlayer(pl.id); return;
+    }
     const change = await ask({ icon: '👥', title: 'Name schon vergeben', text: `„${pl.name}“ gibt es schon in der Spielerverwaltung. Ändere den neuen Namen, zum Beispiel mit Nachnamen, oder passe den vorhandenen an.`, ok: 'Neuen Namen ändern', cancel: 'Vorhandenen anpassen', locked: true });
     if (change) { const i = $('pname'); if (i) i.focus(); }
     else { location.hash = '#/spieler'; setTimeout(() => editPlayer(pl.id), 150); }
@@ -683,7 +752,7 @@ function medalRow(x) {
 }
 function rankList(o) {
   return `<ul class="plist rank">${ranking(o).map(x => `
-    <li><span class="rk ${x.pts > 0 && x.rank <= 3 ? ['', 'g', 's', 'b'][x.rank] : ''}">${x.rank}</span><span class="grow">${esc(x.p.name)}${medalRow(x)}</span><b>${x.pts}</b></li>`).join('')}</ul>`;
+    <li><span class="rk ${x.pts > 0 && x.rank <= 3 ? ['', 'g', 's', 'b'][x.rank] : ''}">${x.rank}</span><span class="grow">${ava(x.p.pid)}${esc(x.p.name)}${medalRow(x)}</span><b>${x.pts}</b></li>`).join('')}</ul>`;
 }
 
 /* ============ Austragung: Ansichten ============ */
@@ -760,7 +829,7 @@ function podiumHTML(o, g) {
   const nameOf = id => esc(pById(o, id).name);
   const cls = { 1: 'g', 2: 's', 3: 'b' };
   const col = [2, 1, 3].map(k => `<div class="pcol ${cls[k]} ${resDraft.target === k ? 'sel' : ''}" onclick="podiumSlot(${k})"><div class="pnm">${resDraft[k] ? `<span class="ppill ${resDraft.fresh === resDraft[k] ? 'jump' : ''}">${nameOf(resDraft[k])}</span>` : '<span class="pph">frei</span>'}</div><div class="pblk">${k}</div></div>`).join('');
-  const chips = players.map(p => { const k = placeOf(p.id); return `<button class="pchip ${k ? 'on' : ''}" onclick="podiumPick('${p.id}')"><span>${esc(p.name)}</span>${k ? `<i class="medal ${{ 1: 'gold', 2: 'silver', 3: 'bronze' }[k]}"></i>` : ''}</button>`; }).join('');
+  const chips = players.map(p => { const k = placeOf(p.id); return `<button class="pchip ${k ? 'on' : ''}" onclick="podiumPick('${p.id}')"><span>${ava(p.pid)}${esc(p.name)}</span>${k ? `<i class="medal ${{ 1: 'gold', 2: 'silver', 3: 'bronze' }[k]}"></i>` : ''}</button>`; }).join('');
   resDraft.fresh = null;
   return `<div class="ppod">${col}</div><div class="plistp">${chips}</div>`;
 }
