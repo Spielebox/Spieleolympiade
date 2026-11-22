@@ -412,7 +412,7 @@ function playerDetails(pl) {
 }
 function cardSpieler() {
   const L = sortedPlayers(), A = sortedPlayers(true);
-  const row = (p, arch) => { const n = playerOlyCount(p.id); const op = openPlayers.has(p.id); return `<li>${ava(p.id)}<span class="grow" style="cursor:pointer" onclick="togglePlayer('${p.id}')">${op ? '▾' : '▸'} ${esc(p.name)}${p.nick ? ` <span class="muted">„${esc(p.nick)}“</span>` : ''}<span class="muted" style="display:block;font-size:12px">${n ? n + (n === 1 ? ' Olympiade' : ' Olympiaden') : 'noch keine Olympiade'}</span></span><button class="icon" onclick="editPlayer('${p.id}')" aria-label="Bearbeiten">✎</button><button class="icon" onclick="archivePlayer('${p.id}')" aria-label="${arch ? 'Wiederherstellen' : 'Archivieren'}">${arch ? '↩' : '📦'}</button><button class="icon" onclick="deletePlayer('${p.id}')" aria-label="Löschen">✕</button>${op ? playerDetails(p) : ''}</li>`; };
+  const row = (p, arch) => { const n = playerOlyCount(p.id); const op = openPlayers.has(p.id); return `<li>${ava(p.id)}<span class="grow" style="cursor:pointer" onclick="togglePlayer('${p.id}')">${op ? '▾' : '▸'} ${esc(p.name)}${p.nick ? ` <span class="muted">„${esc(p.nick)}“</span>` : ''}<span class="muted" style="display:block;font-size:12px">${n ? n + (n === 1 ? ' Olympiade' : ' Olympiaden') : 'noch keine Olympiade'}</span></span><button class="icon" onclick="editPlayer('${p.id}')" aria-label="Bearbeiten">✏️</button><button class="icon" onclick="archivePlayer('${p.id}')" aria-label="${arch ? 'Wiederherstellen' : 'Archivieren'}">${arch ? '↩' : '📦'}</button><button class="icon" onclick="deletePlayer('${p.id}')" aria-label="Löschen">🗑️</button>${op ? playerDetails(p) : ''}</li>`; };
   return `<div class="card" id="spieler">
     <h2>Spielerverwaltung</h2>
     <p class="muted">Alle Personen an einem Ort. Änderungen gelten überall, auch in früheren Olympiaden.</p>
@@ -691,16 +691,56 @@ function audioCtx() {
   return actx;
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && actx && actx.state !== 'running') { try { actx.resume(); } catch (e) {} } });
-function beep(n = 3, retry = true) {
+/* Signalton als normales Audio-Element (wie die Musik): auf iOS zuverlässiger als WebAudio */
+let BEEP_EL = null;
+function makeBeepWav() {
+  const sr = 22050, n = 3, on = 0.25, gap = 0.1, total = Math.round(sr * (n * (on + gap)));
+  const pcm = new Int16Array(total);
+  for (let k = 0; k < n; k++) {
+    const st = Math.round(sr * k * (on + gap)), len = Math.round(sr * on);
+    for (let i = 0; i < len; i++) {
+      const env = Math.min(1, i / 200, (len - i) / 400), ph = 2 * Math.PI * 880 * i / sr;
+      pcm[st + i] = Math.round((Math.sin(ph) + 0.35 * Math.sin(3 * ph)) * 0.55 * env * 12000);
+    }
+  }
+  const buf = new ArrayBuffer(44 + pcm.length * 2), v = new DataView(buf);
+  const w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + pcm.length * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, pcm.length * 2, true);
+  new Int16Array(buf, 44).set(pcm);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+/* Beim Tippen auf Start aufrufen: schaltet den Ton frei */
+function unlockBeep() {
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    if (!BEEP_EL) { BEEP_EL = new Audio(makeBeepWav()); BEEP_EL.preload = 'auto'; }
+    BEEP_EL.muted = true;
+    const pr = BEEP_EL.play();
+    const done = () => { try { BEEP_EL.pause(); BEEP_EL.currentTime = 0; BEEP_EL.muted = false; } catch (e) {} };
+    if (pr && pr.then) pr.then(done).catch(() => { BEEP_EL.muted = false; }); else done();
+  } catch (e) {}
+  audioCtx();
+}
+function beep(n = 3) {
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    if (!BEEP_EL) BEEP_EL = new Audio(makeBeepWav());
+    BEEP_EL.muted = false; BEEP_EL.volume = 1; BEEP_EL.currentTime = 0;
+    const pr = BEEP_EL.play();
+    if (pr && pr.catch) pr.catch(() => beepCtx(n));
+  } catch (e) { beepCtx(n); }
+}
+function beepCtx(n = 3, retry = true) {
   const c = audioCtx(); if (!c) return;
-  if (c.state !== 'running') { if (retry) c.resume().then(() => beep(n, false)).catch(() => {}); return; }
+  if (c.state !== 'running') { if (retry) c.resume().then(() => beepCtx(n, false)).catch(() => {}); return; }
   for (let i = 0; i < n; i++) {
     const t = c.currentTime + i * 0.35, o = c.createOscillator(), g = c.createGain();
     o.type = 'square'; o.frequency.value = 880; g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(0.25, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
     o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.3);
   }
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 }
 
 /* Timer */
@@ -722,7 +762,7 @@ function toolTimer() {
 function tmSet(sec) { TM.run = false; TM.dur = sec; TM.left = sec; TM.fired = false; rr(); }
 function tmAdj(d) { if (TM.run) return; TM.dur = Math.max(5, TM.dur + d); TM.left = TM.dur; TM.fired = false; rr(); }
 function tmToggle() {
-  audioCtx();
+  unlockBeep();
   if (TM.run) { TM.left = Math.max(0, (TM.end - Date.now()) / 1000); TM.run = false; }
   else { if (TM.left <= 0) TM.left = TM.dur; TM.fired = false; TM.end = Date.now() + TM.left * 1000; TM.run = true; }
   rr();
