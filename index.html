@@ -519,7 +519,7 @@ function route() {
   const h = location.hash.replace(/^#\/?/, '').split('/');
   if (h[0] === 'o' && h[1]) {
     const o = db.olympiads.find(x => x.id === h[1]);
-    if (o) return { o, tab: h[2] || 'details' };
+    if (o) return { o, tab: h[2] || 'details', sub: h[3] };
   }
   if (['spieler', 'olympiaden', 'spontan', 'quiz', 'werkzeuge', 'sicherung'].includes(h[0])) return { o: null, page: h[0] };
   if (h[0] === 'w' && h[1]) return { o: null, page: 'w', sub: h[1] };
@@ -529,7 +529,7 @@ const cur = () => route().o;
 
 function render() {
   const r = route();
-  $('app').innerHTML = r.o ? viewOlympiad(r.o, r.tab) : viewPage(r);
+  $('app').innerHTML = r.o ? viewOlympiad(r.o, r.tab, r.sub) : viewPage(r);
   if (r.o && r.tab === 'run') AudioKit.load();
 }
 window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
@@ -676,7 +676,18 @@ function viewWerkzeuge() {
   ${mrow('🔀', 'Reihenfolge auslosen', 'Wer fängt an?', '#/w/los')}
   ${mrow('🔔', 'Buzzer-Raum', 'Mit QR-Code, braucht den Server', '', { soon: 1 })}`;
 }
-const tback = t => `<a class="back" href="#/werkzeuge">‹ Werkzeuge</a><div class="mhead"><h2>${t}</h2></div>`;
+function toolCtx() { const r = route(); if (r.o && r.tab === 'w') { const o = r.o; return { o, g: o.current ? gById(o, o.current) : null }; } return null; }
+const tback = t => { const c = toolCtx(); return `<a class="back" href="${c ? '#/o/' + c.o.id + '/run' : '#/werkzeuge'}">‹ ${c ? 'Zurück zum Spiel' : 'Werkzeuge'}</a><div class="mhead"><h2>${t}</h2></div>`; };
+/* Personen: in der Olympiade die Teilnehmer (Spielleiter markiert), sonst alle Spieler */
+function people() {
+  const c = toolCtx();
+  if (c) return c.o.participants.map(p => ({ key: p.id, name: p.name, pid: p.pid || null, owner: !!(c.g && p.id === c.g.ownerId) })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  return sortedPlayers().map(p => ({ key: p.id, name: dispName(p), pid: p.id, owner: false }));
+}
+function olyStore() { const c = toolCtx(); TS.oly = TS.oly || {}; return TS.oly[c.o.id + ':' + (c.g ? c.g.id : 'x')] ||= {}; }
+function PT() { const c = toolCtx(); if (!c) return TS; const st = olyStore(); if (!st.pts) st.pts = people().filter(x => !x.owner).map(x => ({ id: uid(), name: x.name, pid: x.pid, part: x.key, p: 0 })); return st; }
+function LS() { const c = toolCtx(); if (!c) { TS.lot.off = TS.lot.off || []; return TS.lot; } const st = olyStore(); if (!st.lot) st.lot = { sel: people().map(x => x.name), extra: [], off: people().filter(x => x.owner).map(x => x.name) }; return st.lot; }
+
 function viewTool(k) {
   return { timer: toolTimer, stoppuhr: toolStoppuhr, punkte: toolPunkte, los: toolLos }[k]?.() || viewWerkzeuge();
 }
@@ -802,91 +813,106 @@ setInterval(() => {
 /* Punkteliste */
 let PTopen = false;
 function toolPunkte() {
-  const pls = sortedPlayers(), inList = k => TS.pts.some(x => nn(x.name) === nn(k));
-  const others = TS.pts.filter(x => !pls.some(p => nn(dispName(p)) === nn(x.name)));
-  const head = `<div class="mhead2"><span class="mlab" style="margin:0">Spieler (${TS.pts.length})</span><button class="tg${PTopen ? ' open' : ''}" onclick="PTopen=!PTopen;rr()">${PTopen ? 'Fertig ▴' : '＋ Spieler ▾'}</button></div>`;
+  const c = toolCtx(), H = PT(), pls = people(), inList = k => H.pts.some(x => nn(x.name) === nn(k));
+  const others = c ? [] : H.pts.filter(x => !pls.some(p => nn(p.name) === nn(x.name)));
+  const head = `<div class="mhead2"><span class="mlab" style="margin:0">Spieler (${H.pts.length})</span><button class="tg${PTopen ? ' open' : ''}" onclick="PTopen=!PTopen;rr()">${PTopen ? 'Fertig ▴' : '＋ Spieler ▾'}</button></div>`;
   let body;
   if (PTopen) {
     body = `<p class="muted" style="margin:4px 0 8px">Antippen zum Hinzufügen oder Herausnehmen</p>
-    <div class="qchips">${pls.map(p => `<button class="qchip${inList(dispName(p)) ? ' on' : ''}" onclick="ptTog('${p.id}')">${ava(p.id)}${esc(dispName(p))}</button>`).join('')}${others.map(x => `<button class="qchip on" onclick="ptDel('${x.id}')">${esc(x.name)}</button>`).join('')}</div>
-    <div class="addrow"><input id="ptName" placeholder="Weiterer Name" enterkeyhint="done" onkeydown="if(event.key==='Enter')ptNew()"><button onclick="ptNew()">＋</button></div>`;
+    <div class="qchips">${pls.map(p => `<button class="qchip${inList(p.name) ? ' on' : ''}" data-k="${p.key}" onclick="ptTog(this.dataset.k)">${ava(p.pid)}${esc(p.name)}${p.owner ? ' (Spielleiter)' : ''}</button>`).join('')}${others.map(x => `<button class="qchip on" onclick="ptDel('${x.id}')">${esc(x.name)}</button>`).join('')}</div>
+    ${c ? '' : '<div class="addrow"><input id="ptName" placeholder="Weiterer Name" enterkeyhint="done" onkeydown="if(event.key===\'Enter\')ptNew()"><button onclick="ptNew()">＋</button></div>'}`;
   } else {
-    body = TS.pts.length ? TS.pts.map(x => `
+    body = H.pts.length ? H.pts.map(x => `
   <div class="plrow">
     <div class="plname" onclick="ptAdd('${x.id}',1)">${ava(x.pid)}${esc(x.name)}</div>
     <button class="sec" onclick="ptAdd('${x.id}',-1)">−</button>
     <div class="plpts">${x.p}</div>
     <button onclick="ptAdd('${x.id}',1)">+</button>
-  </div>`).join('') + `<div class="row wrap" style="margin-top:14px"><button class="sec grow" onclick="ptZero()">Punkte auf 0</button><button class="sec grow" onclick="ptClear()">Liste leeren</button></div>`
+  </div>`).join('') + (c && c.g ? `<button style="width:100%;margin-top:14px" onclick="ptToPodium()">🏅 Plätze ins Ergebnis übernehmen</button>` : '') + `<div class="row wrap" style="margin-top:14px"><button class="sec grow" onclick="ptZero()">Punkte auf 0</button><button class="sec grow" onclick="ptClear()">Liste leeren</button></div>`
       : '<div class="empty">Noch niemand dabei. Tippe oben auf „Spieler“.</div>';
   }
   return `${tback('Punkteliste')}${head}${body}`;
 }
-function ptAdd(id, d) { const x = TS.pts.find(v => v.id === id); if (!x) return; x.p += d; tsave(); rr(); }
-function ptTog(pid) {
-  const pl = db.players.find(x => x.id === pid); if (!pl) return;
-  const name = dispName(pl), x = TS.pts.find(v => nn(v.name) === nn(name));
+function ptAdd(id, d) { const x = PT().pts.find(v => v.id === id); if (!x) return; x.p += d; tsave(); rr(); }
+function ptTog(key) {
+  const pl = people().find(x => x.key === key); if (!pl) return;
+  const H = PT(), x = H.pts.find(v => nn(v.name) === nn(pl.name));
   if (x) return ptDel(x.id);
-  TS.pts.push({ id: uid(), name, pid: pl.id, p: 0 }); tsave(); rr();
+  H.pts.push({ id: uid(), name: pl.name, pid: pl.pid, part: toolCtx() ? pl.key : null, p: 0 }); tsave(); rr();
 }
 function ptNew() {
-  const name0 = ($('ptName').value || '').trim(); if (!name0) return;
+  const H = PT(), name0 = ($('ptName').value || '').trim(); if (!name0) return;
   const pl = db.players.find(x => nn(dispName(x)) === nn(name0) || nn(x.name) === nn(name0)), name = pl ? dispName(pl) : name0;
-  if (TS.pts.some(x => nn(x.name) === nn(name))) { toast('„' + name + '“ ist schon in der Liste.'); return; }
-  TS.pts.push({ id: uid(), name, pid: pl ? pl.id : null, p: 0 }); tsave(); rr();
+  if (H.pts.some(x => nn(x.name) === nn(name))) { toast('„' + name + '“ ist schon in der Liste.'); return; }
+  H.pts.push({ id: uid(), name, pid: pl ? pl.id : null, p: 0 }); tsave(); rr();
   setTimeout(() => { const i = $('ptName'); i && i.focus(); }, 30);
 }
 async function ptDel(id) {
-  const x = TS.pts.find(v => v.id === id); if (!x) return;
+  const H = PT(), x = H.pts.find(v => v.id === id); if (!x) return;
   if (x.p !== 0 && !await ask({ icon: '🗑️', title: 'Herausnehmen?', text: `„${x.name}“ hat ${x.p} Punkt${x.p === 1 ? '' : 'e'}. Die gehen verloren.`, ok: 'Herausnehmen', danger: true })) return;
-  TS.pts = TS.pts.filter(v => v.id !== id); tsave(); rr();
+  H.pts = H.pts.filter(v => v.id !== id); tsave(); rr();
 }
-async function ptZero() { if (!await ask({ icon: '↺', title: 'Punkte auf 0?', text: 'Alle Punkte werden zurückgesetzt, die Namen bleiben.', ok: 'Auf 0 setzen' })) return; TS.pts.forEach(x => x.p = 0); tsave(); rr(); }
-async function ptClear() { if (!await ask({ icon: '🗑️', title: 'Liste leeren?', text: 'Alle Namen und Punkte werden entfernt.', ok: 'Leeren', danger: true })) return; TS.pts = []; tsave(); rr(); }
+async function ptZero() { if (!await ask({ icon: '↺', title: 'Punkte auf 0?', text: 'Alle Punkte werden zurückgesetzt, die Namen bleiben.', ok: 'Auf 0 setzen' })) return; PT().pts.forEach(x => x.p = 0); tsave(); rr(); }
+async function ptClear() { if (!await ask({ icon: '🗑️', title: 'Liste leeren?', text: 'Alle Namen und Punkte werden entfernt.', ok: 'Leeren', danger: true })) return; PT().pts = []; tsave(); rr(); }
+/* Olympiade: die ersten drei Plätze ins Treppchen übernehmen (nur zum Kontrollieren, nicht gespeichert) */
+async function ptToPodium() {
+  const c = toolCtx(); if (!c || !c.g) return;
+  const rows = PT().pts.filter(x => x.part && x.part !== c.g.ownerId).sort((a, b) => b.p - a.p);
+  if (rows.length < 3) { toast('Mindestens 3 Spieler nötig'); return; }
+  const place = {}; let tie = false;
+  [0, 1, 2].forEach(i => { const x = rows[i], same = rows.filter(r => r.p === x.p).length > 1; if (same) tie = true; else place[i + 1] = x.part; });
+  const txt = (tie ? 'Bei Gleichstand bleibt der Platz frei, den entscheidest du im Treppchen. ' : '') + 'Die Plätze werden im Treppchen nur eingetragen. Gespeichert wird erst, wenn du dort bestätigst.';
+  if (!await ask({ icon: '🏅', title: 'Plätze übernehmen?', text: txt, ok: 'Übernehmen', cancel: 'Abbrechen' })) return;
+  resInit(c.g); Object.assign(resDraft, { 1: place[1] || null, 2: place[2] || null, 3: place[3] || null, target: null, fresh: null });
+  location.hash = '#/o/' + c.o.id + '/run';
+  setTimeout(() => { const el = $('podium'); el && el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 150);
+}
 
 /* Reihenfolge auslosen */
 let LOopen = false;
-const loAllNames = () => { const L = TS.lot; return [...sortedPlayers().map(dispName), ...L.extra]; };
+const loAllNames = () => [...people().map(x => x.name), ...(toolCtx() ? [] : LS().extra)];
 function toolLos() {
-  const L = TS.lot; L.off = L.off || [];
-  const pls = sortedPlayers(), pidOf = k => { const p = pls.find(x => dispName(x) === k); return p ? p.id : null; };
+  const c = toolCtx(), L = LS(), pls = people();
+  const pidOf = k => { const p = pls.find(x => x.name === k); return p ? p.pid : null; };
   const names = loAllNames(), pool = names.filter(k => L.sel.includes(k));
   const act = pool.filter(k => !L.off.includes(k));
-  const chip = (k, cls, fn) => `<button class="qchip${cls}" data-k="${esc(k)}" onclick="${fn}(this.dataset.k)">${pidOf(k) ? ava(pidOf(k)) : ''}${esc(k)}</button>`;
+  const chip = (k, cls, fn) => `<button class="qchip${cls}" data-k="${esc(k)}" onclick="${fn}(this.dataset.k)">${ava(pidOf(k))}${esc(k)}</button>`;
   const head = `<div class="mhead2"><span class="mlab" style="margin:0">Anwesend (${act.length} von ${pool.length})</span><button class="tg${LOopen ? ' open' : ''}" onclick="LOopen=!LOopen;rr()">${LOopen ? 'Fertig ▴' : '＋ Spieler ▾'}</button></div>`;
   let body;
   if (LOopen) {
     body = `<p class="muted" style="margin:4px 0 8px">Antippen zum Hinzufügen oder Herausnehmen</p>
     <div class="qchips">${names.length ? names.map(k => chip(k, L.sel.includes(k) ? ' on' : '', 'loPool')).join('') : '<span class="muted">Noch keine Spieler angelegt.</span>'}</div>
-    <div class="addrow"><input id="loName" placeholder="Weiterer Name" enterkeyhint="done" onkeydown="if(event.key==='Enter')loNew()"><button onclick="loNew()">＋</button></div>
+    ${c ? '' : '<div class="addrow"><input id="loName" placeholder="Weiterer Name" enterkeyhint="done" onkeydown="if(event.key===\'Enter\')loNew()"><button onclick="loNew()">＋</button></div>'}
     <button class="sec" style="width:100%" onclick="loAll()">Alle anwesend</button>`;
   } else {
-    body = pool.length ? `<p class="muted" style="margin:4px 0 8px">Tippe einen Namen an, um ihn für diese Auslosung auszusetzen.</p><div class="qchips">${pool.map(k => chip(k, L.off.includes(k) ? ' off' : ' on', 'loOff')).join('')}</div>` : '<div class="empty">Noch niemand anwesend. Tippe oben auf „Spieler“.</div>';
+    const own = c && c.g ? pls.find(x => x.owner) : null;
+    body = pool.length ? `<p class="muted" style="margin:4px 0 8px">Tippe einen Namen an, um ihn für diese Auslosung auszusetzen.${own ? ' Der Spielleiter ist schon ausgesetzt.' : ''}</p><div class="qchips">${pool.map(k => chip(k, L.off.includes(k) ? ' off' : ' on', 'loOff')).join('')}</div>` : '<div class="empty">Noch niemand anwesend. Tippe oben auf „Spieler“.</div>';
   }
   return `${tback('Reihenfolge auslosen')}
   ${head}${body}
   <div class="tbtn sm" style="grid-template-columns:1fr"><button onclick="loDraw()" ${act.length < 2 ? 'disabled' : ''}>🔀 Auslosen${act.length ? ' (' + act.length + ')' : ''}</button></div>
   ${LOT.length ? `<ol class="drawl">${LOT.map((n, i) => `<li style="animation-delay:${i * 0.12}s"><b>${i + 1}</b>${esc(n)}</li>`).join('')}</ol>` : ''}`;
 }
-function loPool(k) { const L = TS.lot, i = L.sel.indexOf(k); if (i >= 0) { L.sel.splice(i, 1); L.off = L.off.filter(x => x !== k); } else L.sel.push(k); tsave(); rr(); }
-function loOff(k) { const L = TS.lot, i = L.off.indexOf(k); if (i >= 0) L.off.splice(i, 1); else L.off.push(k); tsave(); rr(); }
-function loAll() { const L = TS.lot; L.sel = loAllNames(); L.off = []; tsave(); rr(); }
+function loPool(k) { const L = LS(), i = L.sel.indexOf(k); if (i >= 0) { L.sel.splice(i, 1); L.off = L.off.filter(x => x !== k); } else L.sel.push(k); tsave(); rr(); }
+function loOff(k) { const L = LS(), i = L.off.indexOf(k); if (i >= 0) L.off.splice(i, 1); else L.off.push(k); tsave(); rr(); }
+function loAll() { const L = LS(); L.sel = loAllNames(); L.off = []; tsave(); rr(); }
 function loNew() {
   const v = ($('loName').value || '').trim(); if (!v) return;
-  const L = TS.lot; let k = loAllNames().find(x => nn(x) === nn(v));
+  const L = LS(); let k = loAllNames().find(x => nn(x) === nn(v));
   if (!k) { k = v; L.extra.push(k); }
   if (!L.sel.includes(k)) L.sel.push(k);
   tsave(); rr(); setTimeout(() => { const i = $('loName'); i && i.focus(); }, 30);
 }
 function loDraw() {
-  const a = loAllNames().filter(k => TS.lot.sel.includes(k) && !(TS.lot.off || []).includes(k));
+  const L = LS(), a = loAllNames().filter(k => L.sel.includes(k) && !L.off.includes(k));
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   LOT = a; rr(); setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 80);
 }
 
 
-function viewOlympiad(o, tab) {
+function viewOlympiad(o, tab, sub) {
   if (tab === 'run') return viewRun(o);
+  if (tab === 'w') return o.current ? viewTool(sub) : `<a class="back" href="#/o/${o.id}/run">‹ Zurück</a><div class="empty">Gerade läuft kein Spiel.</div>`;
   const tabs = [['details', 'Details'], ['teilnehmer', 'Teilnehmer'], ['einladung', 'Einladung'], ['regeln', 'Regeln']];
   const body = { details: tabDetails, teilnehmer: tabTeilnehmer, einladung: tabEinladung, regeln: tabRegeln }[tab] || tabDetails;
   return `
@@ -1235,7 +1261,13 @@ function runGame(o) {
       <div class="gtitle">${esc(g.title)}</div>
       <div>Spielleiter: <b>${esc(owner.name)}</b></div>
     </div>
-    <div class="card"><h2>Werkzeuge</h2><p class="muted" style="margin:0">Timer, Reihenfolge, Notizen und Buzzer folgen in den nächsten Schritten.</p></div>
+    <div class="card"><h2>Werkzeuge</h2>
+      <div class="mgrid" style="margin:8px 0 0">
+        <a class="mt" style="min-height:84px" href="#/o/${o.id}/w/timer"><span class="mic">⏲️</span><b>Timer</b></a>
+        <a class="mt" style="min-height:84px" href="#/o/${o.id}/w/stoppuhr"><span class="mic">⏱️</span><b>Stoppuhr</b></a>
+        <a class="mt" style="min-height:84px" href="#/o/${o.id}/w/punkte"><span class="mic">🔢</span><b>Punkteliste</b></a>
+        <a class="mt" style="min-height:84px" href="#/o/${o.id}/w/los"><span class="mic">🔀</span><b>Auslosen</b></a>
+      </div></div>
     <div class="card sel3"><h2>Ergebnis eintragen</h2>
       <p class="muted" style="margin:0">Es muss eindeutig Platz 1–3 geben – bei Gleichstand erst ein Stechen spielen.</p>
       <div id="podium">${podiumHTML(o, g)}</div>
