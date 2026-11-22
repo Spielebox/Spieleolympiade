@@ -800,34 +800,47 @@ setInterval(() => {
 }, 100);
 
 /* Punkteliste */
+let PTopen = false;
 function toolPunkte() {
-  const have = new Set(TS.pts.map(x => nn(x.name)));
-  const free = sortedPlayers().filter(p => !have.has(nn(dispName(p))));
-  return `${tback('Punkteliste')}
-  ${TS.pts.length ? TS.pts.map(x => `
+  const pls = sortedPlayers(), inList = k => TS.pts.some(x => nn(x.name) === nn(k));
+  const others = TS.pts.filter(x => !pls.some(p => nn(dispName(p)) === nn(x.name)));
+  const head = `<div class="mhead2"><span class="mlab" style="margin:0">Spieler (${TS.pts.length})</span><button class="tg${PTopen ? ' open' : ''}" onclick="PTopen=!PTopen;rr()">${PTopen ? 'Fertig ▴' : '＋ Spieler ▾'}</button></div>`;
+  let body;
+  if (PTopen) {
+    body = `<p class="muted" style="margin:4px 0 8px">Antippen zum Hinzufügen oder Herausnehmen</p>
+    <div class="qchips">${pls.map(p => `<button class="qchip${inList(dispName(p)) ? ' on' : ''}" onclick="ptTog('${p.id}')">${ava(p.id)}${esc(dispName(p))}</button>`).join('')}${others.map(x => `<button class="qchip on" onclick="ptDel('${x.id}')">${esc(x.name)}</button>`).join('')}</div>
+    <div class="addrow"><input id="ptName" placeholder="Weiterer Name" enterkeyhint="done" onkeydown="if(event.key==='Enter')ptNew()"><button onclick="ptNew()">＋</button></div>`;
+  } else {
+    body = TS.pts.length ? TS.pts.map(x => `
   <div class="plrow">
     <div class="plname" onclick="ptAdd('${x.id}',1)">${ava(x.pid)}${esc(x.name)}</div>
     <button class="sec" onclick="ptAdd('${x.id}',-1)">−</button>
     <div class="plpts">${x.p}</div>
     <button onclick="ptAdd('${x.id}',1)">+</button>
-    <button class="x" onclick="ptDel('${x.id}')">✕</button>
-  </div>`).join('') : '<div class="empty">Noch keine Spieler. Tippe unten einen Namen an.</div>'}
-  ${free.length ? `<div class="mlab">Bekannte Spieler</div><div class="qchips">${free.map(p => `<button class="qchip" onclick="ptNew('${p.id}')">${ava(p.id)}${esc(dispName(p))}</button>`).join('')}</div>` : ''}
-  <div class="mlab">Weiterer Name</div>
-  <div class="addrow"><input id="ptName" placeholder="Name" enterkeyhint="done" onkeydown="if(event.key==='Enter')ptNew()"><button onclick="ptNew()">＋</button></div>
-  ${TS.pts.length ? `<div class="row wrap" style="margin-top:14px"><button class="sec grow" onclick="ptZero()">Punkte auf 0</button><button class="sec grow" onclick="ptClear()">Liste leeren</button></div>` : ''}`;
+  </div>`).join('') + `<div class="row wrap" style="margin-top:14px"><button class="sec grow" onclick="ptZero()">Punkte auf 0</button><button class="sec grow" onclick="ptClear()">Liste leeren</button></div>`
+      : '<div class="empty">Noch niemand dabei. Tippe oben auf „Spieler“.</div>';
+  }
+  return `${tback('Punkteliste')}${head}${body}`;
 }
 function ptAdd(id, d) { const x = TS.pts.find(v => v.id === id); if (!x) return; x.p += d; tsave(); rr(); }
-function ptNew(pid) {
-  let name, pl = null;
-  if (pid) { pl = db.players.find(x => x.id === pid); name = pl && dispName(pl); }
-  else { name = ($('ptName').value || '').trim(); pl = db.players.find(x => nn(dispName(x)) === nn(name) || nn(x.name) === nn(name)); if (pl) name = dispName(pl); }
-  if (!name) return;
+function ptTog(pid) {
+  const pl = db.players.find(x => x.id === pid); if (!pl) return;
+  const name = dispName(pl), x = TS.pts.find(v => nn(v.name) === nn(name));
+  if (x) return ptDel(x.id);
+  TS.pts.push({ id: uid(), name, pid: pl.id, p: 0 }); tsave(); rr();
+}
+function ptNew() {
+  const name0 = ($('ptName').value || '').trim(); if (!name0) return;
+  const pl = db.players.find(x => nn(dispName(x)) === nn(name0) || nn(x.name) === nn(name0)), name = pl ? dispName(pl) : name0;
   if (TS.pts.some(x => nn(x.name) === nn(name))) { toast('„' + name + '“ ist schon in der Liste.'); return; }
   TS.pts.push({ id: uid(), name, pid: pl ? pl.id : null, p: 0 }); tsave(); rr();
-  if (!pid) setTimeout(() => { const i = $('ptName'); i && i.focus(); }, 30);
+  setTimeout(() => { const i = $('ptName'); i && i.focus(); }, 30);
 }
-async function ptDel(id) { const x = TS.pts.find(v => v.id === id); if (!x) return; if (!await ask({ icon: '🗑️', title: 'Entfernen?', text: `„${x.name}“ aus der Liste nehmen?`, ok: 'Entfernen', danger: true })) return; TS.pts = TS.pts.filter(v => v.id !== id); tsave(); rr(); }
+async function ptDel(id) {
+  const x = TS.pts.find(v => v.id === id); if (!x) return;
+  if (x.p !== 0 && !await ask({ icon: '🗑️', title: 'Herausnehmen?', text: `„${x.name}“ hat ${x.p} Punkt${x.p === 1 ? '' : 'e'}. Die gehen verloren.`, ok: 'Herausnehmen', danger: true })) return;
+  TS.pts = TS.pts.filter(v => v.id !== id); tsave(); rr();
+}
 async function ptZero() { if (!await ask({ icon: '↺', title: 'Punkte auf 0?', text: 'Alle Punkte werden zurückgesetzt, die Namen bleiben.', ok: 'Auf 0 setzen' })) return; TS.pts.forEach(x => x.p = 0); tsave(); rr(); }
 async function ptClear() { if (!await ask({ icon: '🗑️', title: 'Liste leeren?', text: 'Alle Namen und Punkte werden entfernt.', ok: 'Leeren', danger: true })) return; TS.pts = []; tsave(); rr(); }
 
