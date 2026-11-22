@@ -263,8 +263,9 @@ select:focus{border-color:var(--gold)}
 .mhead{display:flex;align-items:center;gap:10px;margin:2px 0 6px}.mhead h2{font-size:21px;color:var(--gold2)}
 .tbig{font-family:'Archivo Black',system-ui,sans-serif;font-size:min(24vw,104px);text-align:center;font-variant-numeric:tabular-nums;line-height:1.1;margin:18px 0 14px;letter-spacing:.02em}
 .tbig.done{color:var(--danger)}
-.tbtn{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.tbtn{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:10px 0}
 .tbtn button{min-height:120px;font-size:24px;border-radius:18px}
+.tbtn.xl button{min-height:240px;font-size:26px;padding:0 6px;border-radius:24px}
 .tbtn.sm button{min-height:84px;font-size:20px}
 .tadj{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0}
 .tadj button{padding:0;min-height:64px;font-size:17px;border-radius:14px}
@@ -720,7 +721,7 @@ function tmReset() { TM.run = false; TM.left = TM.dur; TM.fired = false; rr(); }
 function toolStoppuhr() {
   return `${tback('Stoppuhr')}
   <div class="tbig" id="swd" style="font-size:min(17vw,76px)">${fmtSW(swMs())}</div>
-  <div class="tbtn">
+  <div class="tbtn xl">
     <button onclick="swToggle()">${SW.run ? '⏸ Stopp' : (SW.acc ? '▶ Weiter' : '▶ Start')}</button>
     <button class="sec" onclick="${SW.run ? 'swLap()' : 'swReset()'}">${SW.run ? '🏁 Runde' : '↺ Zurücksetzen'}</button>
   </div>
