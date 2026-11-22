@@ -1253,6 +1253,7 @@ function podiumSlot(k) {
   if (resDraft[k]) { resDraft[k] = null; resDraft.target = k; } else resDraft.target = resDraft.target === k ? null : k;
   podiumRefresh();
 }
+let TOOLopen = false;
 function runGame(o) {
   const g = gById(o, o.current), owner = pById(o, g.ownerId);
   resInit(g);
@@ -1261,8 +1262,8 @@ function runGame(o) {
       <div class="gtitle">${esc(g.title)}</div>
       <div>Spielleiter: <b>${esc(owner.name)}</b></div>
     </div>
-    <div class="card"><h2>Werkzeuge</h2>
-      <div class="mgrid" style="margin:8px 0 0">
+    <div class="card"><div class="mhead2" style="margin:0;cursor:pointer" onclick="TOOLopen=!TOOLopen;rr()"><h2 style="margin:0">Werkzeuge</h2><span class="tg${TOOLopen ? ' open' : ''}">${TOOLopen ? 'Zuklappen ▴' : 'Öffnen ▾'}</span></div>
+      <div class="mgrid" style="margin:12px 0 0;${TOOLopen ? '' : 'display:none'}">
         <a class="mt" style="min-height:84px" href="#/o/${o.id}/w/timer"><span class="mic">⏲️</span><b>Timer</b></a>
         <a class="mt" style="min-height:84px" href="#/o/${o.id}/w/stoppuhr"><span class="mic">⏱️</span><b>Stoppuhr</b></a>
         <a class="mt" style="min-height:84px" href="#/o/${o.id}/w/punkte"><span class="mic">🔢</span><b>Punkteliste</b></a>
