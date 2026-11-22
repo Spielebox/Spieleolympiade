@@ -277,6 +277,10 @@ select:focus{border-color:var(--gold)}
 .plrow button.x{width:34px;background:transparent;color:var(--muted);box-shadow:none;font-size:18px}
 .lapl{list-style:none;margin:8px 0;padding:0}.lapl li{display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
 .qchip.on{background:var(--gold);color:#2a1c00;border-color:var(--gold)}
+.qchip.off{opacity:.4;text-decoration:line-through}
+.mhead2{display:flex;align-items:center;justify-content:space-between;margin:16px 0 6px}
+.tg{padding:8px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--text);font-size:14px;min-height:0;box-shadow:none}
+.tg.open{background:var(--gold);color:#2a1c00;border-color:var(--gold)}
 .drawl{list-style:none;margin:10px 0;padding:0;counter-reset:d}
 .drawl li{display:flex;align-items:center;gap:12px;padding:12px;margin:8px 0;border-radius:14px;background:var(--card);border:1px solid var(--line);font-size:18px;font-weight:600;animation:dr .35s ease both}
 .drawl li b{width:34px;height:34px;border-radius:50%;background:var(--gold);color:#2a1c00;display:grid;place-items:center;font-size:16px;flex:none}
@@ -828,22 +832,41 @@ async function ptZero() { if (!await ask({ icon: '↺', title: 'Punkte auf 0?', 
 async function ptClear() { if (!await ask({ icon: '🗑️', title: 'Liste leeren?', text: 'Alle Namen und Punkte werden entfernt.', ok: 'Leeren', danger: true })) return; TS.pts = []; tsave(); rr(); }
 
 /* Reihenfolge auslosen */
+let LOopen = false;
+const loAllNames = () => { const L = TS.lot; return [...sortedPlayers().map(dispName), ...L.extra]; };
 function toolLos() {
-  const L = TS.lot, pls = sortedPlayers();
-  const all = [...pls.map(p => ({ k: dispName(p), pid: p.id })), ...L.extra.map(n => ({ k: n, pid: null }))];
-  const on = k => L.sel.includes(k);
+  const L = TS.lot; L.off = L.off || [];
+  const pls = sortedPlayers(), pidOf = k => { const p = pls.find(x => dispName(x) === k); return p ? p.id : null; };
+  const names = loAllNames(), pool = names.filter(k => L.sel.includes(k));
+  const act = pool.filter(k => !L.off.includes(k));
+  const chip = (k, cls, fn) => `<button class="qchip${cls}" data-k="${esc(k)}" onclick="${fn}(this.dataset.k)">${pidOf(k) ? ava(pidOf(k)) : ''}${esc(k)}</button>`;
+  const head = `<div class="mhead2"><span class="mlab" style="margin:0">Anwesend (${act.length} von ${pool.length})</span><button class="tg${LOopen ? ' open' : ''}" onclick="LOopen=!LOopen;rr()">${LOopen ? 'Fertig ▴' : '＋ Spieler ▾'}</button></div>`;
+  let body;
+  if (LOopen) {
+    body = `<p class="muted" style="margin:4px 0 8px">Antippen zum Hinzufügen oder Herausnehmen</p>
+    <div class="qchips">${names.length ? names.map(k => chip(k, L.sel.includes(k) ? ' on' : '', 'loPool')).join('') : '<span class="muted">Noch keine Spieler angelegt.</span>'}</div>
+    <div class="addrow"><input id="loName" placeholder="Weiterer Name" enterkeyhint="done" onkeydown="if(event.key==='Enter')loNew()"><button onclick="loNew()">＋</button></div>
+    <button class="sec" style="width:100%" onclick="loAll()">Alle anwesend</button>`;
+  } else {
+    body = pool.length ? `<p class="muted" style="margin:4px 0 8px">Tippe einen Namen an, um ihn für diese Auslosung auszusetzen.</p><div class="qchips">${pool.map(k => chip(k, L.off.includes(k) ? ' off' : ' on', 'loOff')).join('')}</div>` : '<div class="empty">Noch niemand anwesend. Tippe oben auf „Spieler“.</div>';
+  }
   return `${tback('Reihenfolge auslosen')}
-  <div class="mlab">Wer macht mit?</div>
-  <div class="qchips">${all.length ? all.map(a => `<button class="qchip${on(a.k) ? ' on' : ''}" data-k="${esc(a.k)}" onclick="loTog(this.dataset.k)">${a.pid ? ava(a.pid) : ''}${esc(a.k)}</button>`).join('') : '<span class="muted">Noch keine Spieler angelegt.</span>'}</div>
-  <div class="addrow"><input id="loName" placeholder="Weiterer Name" enterkeyhint="done" onkeydown="if(event.key==='Enter')loNew()"><button onclick="loNew()">＋</button></div>
-  <div class="tbtn sm"><button onclick="loDraw()" ${L.sel.length < 2 ? 'disabled' : ''}>🔀 Auslosen</button><button class="sec" onclick="loAll()">Alle wählen</button></div>
+  ${head}${body}
+  <div class="tbtn sm" style="grid-template-columns:1fr"><button onclick="loDraw()" ${act.length < 2 ? 'disabled' : ''}>🔀 Auslosen${act.length ? ' (' + act.length + ')' : ''}</button></div>
   ${LOT.length ? `<ol class="drawl">${LOT.map((n, i) => `<li style="animation-delay:${i * 0.12}s"><b>${i + 1}</b>${esc(n)}</li>`).join('')}</ol>` : ''}`;
 }
-function loTog(k) { const L = TS.lot; const i = L.sel.indexOf(k); if (i >= 0) L.sel.splice(i, 1); else L.sel.push(k); tsave(); rr(); }
-function loAll() { const L = TS.lot; L.sel = [...sortedPlayers().map(dispName), ...L.extra]; tsave(); rr(); }
-function loNew() { const v = ($('loName').value || '').trim(); if (!v) return; const L = TS.lot; if (![...sortedPlayers().map(dispName), ...L.extra].some(x => nn(x) === nn(v))) L.extra.push(v); const k = [...sortedPlayers().map(dispName), ...L.extra].find(x => nn(x) === nn(v)); if (!L.sel.includes(k)) L.sel.push(k); tsave(); rr(); }
+function loPool(k) { const L = TS.lot, i = L.sel.indexOf(k); if (i >= 0) { L.sel.splice(i, 1); L.off = L.off.filter(x => x !== k); } else L.sel.push(k); tsave(); rr(); }
+function loOff(k) { const L = TS.lot, i = L.off.indexOf(k); if (i >= 0) L.off.splice(i, 1); else L.off.push(k); tsave(); rr(); }
+function loAll() { const L = TS.lot; L.sel = loAllNames(); L.off = []; tsave(); rr(); }
+function loNew() {
+  const v = ($('loName').value || '').trim(); if (!v) return;
+  const L = TS.lot; let k = loAllNames().find(x => nn(x) === nn(v));
+  if (!k) { k = v; L.extra.push(k); }
+  if (!L.sel.includes(k)) L.sel.push(k);
+  tsave(); rr(); setTimeout(() => { const i = $('loName'); i && i.focus(); }, 30);
+}
 function loDraw() {
-  const a = [...TS.lot.sel];
+  const a = loAllNames().filter(k => TS.lot.sel.includes(k) && !(TS.lot.off || []).includes(k));
   for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
   LOT = a; rr(); setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 80);
 }
