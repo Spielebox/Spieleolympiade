@@ -679,9 +679,21 @@ function viewTool(k) {
 
 /* Signalton */
 let actx = null;
-function audioCtx() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {} return actx; }
-function beep(n = 3) {
+function audioCtx() {
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    if (actx && actx.state === 'closed') actx = null;
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state !== 'running') actx.resume();
+    // Stiller Impuls: hält den Ton auf iOS freigeschaltet
+    const b = actx.createBuffer(1, 1, 22050), src = actx.createBufferSource(); src.buffer = b; src.connect(actx.destination); src.start(0);
+  } catch (e) {}
+  return actx;
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && actx && actx.state !== 'running') { try { actx.resume(); } catch (e) {} } });
+function beep(n = 3, retry = true) {
   const c = audioCtx(); if (!c) return;
+  if (c.state !== 'running') { if (retry) c.resume().then(() => beep(n, false)).catch(() => {}); return; }
   for (let i = 0; i < n; i++) {
     const t = c.currentTime + i * 0.35, o = c.createOscillator(), g = c.createGain();
     o.type = 'square'; o.frequency.value = 880; g.gain.setValueAtTime(0.0001, t);
