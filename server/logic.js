@@ -1,5 +1,5 @@
 // Reine Raum-Logik ohne Cloudflare-Abhängigkeit (testbar mit Node).
-export const TIE_MS = 30;          // Abstand, bis zu dem Buzzer als gleichzeitig gelten
+export const TIE_MS = -1;          // keine Gleichzeitigkeit: laut ermittelter Zeit gibt es immer genau einen Ersten
 export const MAX_AGE_MS = 3000;    // älteste erlaubte Rückdatierung eines Buzzers
 
 export function newState(hostKey, now) {
