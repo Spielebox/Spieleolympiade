@@ -314,6 +314,7 @@ select:focus{border-color:var(--gold)}
 .bzo.ans{border-color:#4caf50;background:#17402a}.bzo.ans .rk2{background:#4caf50;color:#04210f}
 .bzo.wr{opacity:.5;text-decoration:line-through}
 .bzo .nm{flex:1;font-weight:600;font-size:17px;min-width:0}.bzo .dt{font-size:12.5px;color:var(--muted);text-align:right}
+.bzst{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}.bzst small{font-size:12px;font-weight:400;color:var(--muted)}.bzst.open{border-color:#4caf50}.bzst.shut{border-color:#e84a5f}
 .hdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:#4a5090}.hdot.on{background:#4caf50}.hdot.me{background:#c9a227}
 </style>
 </head>
@@ -553,7 +554,6 @@ function route() {
   if (['spieler', 'olympiaden', 'spontan', 'quiz', 'werkzeuge', 'sicherung'].includes(h[0])) return { o: null, page: h[0] };
   if (h[0] === 'w' && h[1]) return { o: null, page: 'w', sub: h[1] };
   if (h[0] === 'buzz' && h[1]) return { o: null, page: 'buzz', code: h[1].toUpperCase(), srv: decodeURIComponent(h[2] || '') };
-  if (h[0] === 'einstellungen') return { o: null, page: 'einstellungen' };
   return { o: null };
 }
 const cur = () => route().o;
@@ -575,7 +575,6 @@ function viewPage(r) {
     case 'sicherung': return viewSicherung();
     case 'w': return viewTool(r.sub);
     case 'buzz': return viewBuzz(r.code, r.srv);
-    case 'einstellungen': return viewEinstellungen();
     default: return viewHome();
   }
 }
@@ -627,7 +626,7 @@ function viewHome() {
     <a class="mt" href="#/spieler"><span class="mic">👥</span><b>Spieler</b><span class="ms">${np} ${np === 1 ? 'Person' : 'Personen'}</span></a>
   </div>
   <div class="mt soon" style="min-height:0;display:flex;align-items:center;gap:12px"><span class="mic" style="margin:0">👑</span><span><b>Wall of Fame</b><span class="ms">Kommt später</span></span></div>
-  <div class="row" style="margin-top:14px;gap:10px"><a class="btnlink sec grow" href="#/sicherung">💾 Datensicherung</a><a class="btnlink sec grow" href="#/einstellungen">⚙️ Einstellungen</a></div>`;
+  <div style="margin-top:14px"><a class="btnlink sec" href="#/sicherung">💾 Datensicherung</a></div>`;
 }
 
 function olyCard(o) {
@@ -786,28 +785,12 @@ const DEFAULT_SRV = 'spieleolympiade-server.spam-lama.workers.dev';
 const lsGet = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
 const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
 const cleanHost = h => String(h || '').trim().replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/+$/, '');
-const srvHost = () => cleanHost(lsGet(SRV_KEY, DEFAULT_SRV));
+const srvHost = () => cleanHost(lsGet(SRV_KEY, DEFAULT_SRV)); // Überschreiben nur intern (Test), in der App nicht sichtbar
 const isLocal = h => /^(localhost|127\.|192\.168\.|10\.)/.test(h);
 const httpBase = h => (isLocal(h) ? 'http://' : 'https://') + h;
 const wsBase = h => (isLocal(h) ? 'ws://' : 'wss://') + h;
 const devId = () => { let d = lsGet(DEV_KEY, ''); if (!d) { d = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : String(Math.random()).slice(2) + Date.now()).slice(0, 24); lsSet(DEV_KEY, d); } return d; };
 const clk = () => performance.timeOrigin + performance.now();
-
-function viewEinstellungen() {
-  return `${mhead('Einstellungen')}
-  <div class="card"><h2>Server</h2>
-    <p class="muted">Adresse deines Cloudflare-Workers für den Buzzer-Raum.</p>
-    <input id="srvIn" value="${esc(srvHost())}" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="url">
-    <div class="row wrap" style="margin-top:10px"><button class="grow" onclick="srvSave()">Speichern</button><button class="sec grow" onclick="srvTest()">Verbindung testen</button></div>
-    <p id="srvRes" class="muted" style="margin-bottom:0"></p>
-  </div>`;
-}
-function srvSave() { const v = cleanHost($('srvIn').value); lsSet(SRV_KEY, v && v !== DEFAULT_SRV ? v : null); $('srvIn').value = srvHost(); toast('Gespeichert'); }
-async function srvTest() {
-  const h = cleanHost($('srvIn').value), out = $('srvRes'); out.textContent = 'Teste …';
-  try { const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000); const r = await fetch(httpBase(h) + '/ping', { signal: ctl.signal }); const j = await r.json(); out.textContent = j && j.ok ? '✓ Server erreichbar' : '✗ Unerwartete Antwort'; }
-  catch (e) { out.textContent = '✗ Nicht erreichbar. Adresse und Deployment prüfen.'; }
-}
 
 /* ---- Spielleiter (Host) ---- */
 const BZ = { ws: null, code: null, key: null, view: null, status: 'off', retry: 0, t: null, rosterKey: '', showQr: null, everOn: false, err: '' };
@@ -835,7 +818,7 @@ function bzConnect() {
 async function bzCreate() {
   BZ.err = ''; const h = srvHost();
   try { const r = await fetch(httpBase(h) + '/room', { method: 'POST' }); if (!r.ok) throw 0; const j = await r.json(); BZ.code = j.code; BZ.key = j.key; BZ.everOn = false; BZ.view = null; lsSet(ROOM_KEY, JSON.stringify({ code: j.code, key: j.key })); BZ.showQr = true; bzConnect(); rr(); }
-  catch (e) { BZ.err = 'Server nicht erreichbar. Prüfe die Adresse unter Einstellungen.'; rr(); }
+  catch (e) { BZ.err = 'Server nicht erreichbar. Prüfe deine Internetverbindung und versuche es noch einmal.'; rr(); }
 }
 async function bzClose() { if (!await ask({ icon: '🔔', title: 'Raum schließen?', text: 'Alle Handys werden getrennt. Der Code ist danach ungültig.', ok: 'Schließen', danger: true })) return; bzSend({ t: 'end' }); bzForget(); rr(); }
 const bzLink = () => location.href.split('#')[0] + '#/buzz/' + BZ.code + '/' + encodeURIComponent(srvHost());
@@ -849,7 +832,7 @@ function toolBuzzer() {
   ${BZ.err ? `<div class="card"><p style="margin:0;color:var(--danger)">${esc(BZ.err)}</p></div>` : ''}
   <div class="card"><p style="margin-top:0">Öffnet einen Raum für alle Handys. Die Mitspieler scannen den QR-Code, wählen ihren Namen und buzzern.</p>
   <button style="width:100%" onclick="bzCreate()">🔔 Raum öffnen</button>
-  <p class="muted" style="margin-bottom:0">Braucht Internet. Server: ${esc(srvHost())} (<a href="#/einstellungen">ändern</a>)</p></div>`;
+  <p class="muted" style="margin-bottom:0">Braucht Internet.</p></div>`;
   const v = BZ.view, ros = v ? v.roster : [], on = ros.filter(r => r.online).length;
   const status = BZ.status === 'on' ? `<span class="bzdot"></span> Verbunden · ${on} ${on === 1 ? 'Handy' : 'Handys'} im Raum` : `<span class="bzdot off"></span> ${BZ.status === 'connecting' ? 'Verbinde …' : 'Verbindung unterbrochen, versuche es erneut …'}`;
   const showQr = BZ.showQr === null ? on === 0 : BZ.showQr;
@@ -862,7 +845,7 @@ function toolBuzzer() {
   return `${head}
   <div class="muted" style="margin:0 0 10px">${status}${v && v.round.no ? ` · Runde ${v.round.no}` : ''}</div>
   ${qrBox}
-  <div class="tbtn sm" style="margin-top:14px"><button onclick="bzAct('open')">▶ Neue Runde</button><button class="sec" onclick="bzAct('${open ? 'lock' : 'unlock'}')">${open ? '🔒 Sperren' : '🔓 Freigeben'}</button></div>
+  <div class="tbtn sm" style="margin-top:14px"><button onclick="bzAct('open')">▶ Neue Runde</button><button class="sec bzst ${open ? 'open' : 'shut'}" onclick="bzAct('${open ? 'lock' : 'unlock'}')">${open ? '🟢 Offen' : '🔴 Gesperrt'}<small>${open ? 'Tippen zum Sperren' : 'Tippen zum Öffnen'}</small></button></div>
   <div class="mlab">Reihenfolge</div>${order}
   ${anyAns ? `<button style="width:100%;min-height:64px;font-size:18px" onclick="bzAct('wrong')">✗ Falsch, nächster</button>` : ''}
   ${v && v.buzzes.length ? `<button class="sec" style="width:100%;margin-top:10px" onclick="bzAct('reset')">Runde leeren</button>` : ''}
