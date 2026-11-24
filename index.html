@@ -324,6 +324,7 @@ select:focus{border-color:var(--gold)}
 <div id="app"></div>
 <div id="toast"></div>
 <input type="file" id="importFile" accept=".json,application/json" hidden>
+<input type="file" id="qFile" hidden>
 
 <script>
 /* ============ Speicher-Schicht ============
@@ -553,6 +554,7 @@ function route() {
     const o = db.olympiads.find(x => x.id === h[1]);
     if (o) return { o, tab: h[2] || 'details', sub: h[3] };
   }
+  if (h[0] === 'quiz') return { o: null, page: 'quiz', qz: h[1], qq: h[2] === 'q' ? h[3] : null };
   if (['spieler', 'olympiaden', 'spontan', 'quiz', 'werkzeuge', 'sicherung'].includes(h[0])) return { o: null, page: h[0] };
   if (h[0] === 'w' && h[1]) return { o: null, page: 'w', sub: h[1] };
   if (h[0] === 'buzz' && h[1]) return { o: null, page: 'buzz', code: h[1].toUpperCase(), srv: decodeURIComponent(h[2] || '') };
@@ -572,7 +574,7 @@ function viewPage(r) {
     case 'spieler': return viewSpieler();
     case 'olympiaden': return viewOlympiaden();
     case 'spontan': return viewSpontan();
-    case 'quiz': return viewQuiz();
+    case 'quiz': return viewQuiz(r);
     case 'werkzeuge': return viewWerkzeuge();
     case 'sicherung': return viewSicherung();
     case 'w': return viewTool(r.sub);
@@ -682,14 +684,181 @@ function viewSpontan() {
   ${chips('mode', [['solo', 'Jeder für sich'], ['team', 'In Teams']], 'solo')}
   <div class="card" style="margin-top:18px"><p class="muted" style="margin:0">Das Spontanquiz wird mit dem Buzzer-Raum freigeschaltet. Dann treten alle Mitspieler per QR-Code bei.</p></div>`;
 }
-function viewQuiz() {
+/* ============ Quiz-Sammlung ============ */
+const QTYPES = [['text', 'Frage'], ['mc', 'Multiple Choice'], ['est', 'Schätzen']];
+const QTYPE_LBL = { text: 'Frage', mc: 'Multiple Choice', est: 'Schätzfrage' };
+const QINPUTS = { text: [['oral', 'Nur mündlich'], ['type', 'Tippen'], ['hand', 'Handschrift']], mc: [['oral', 'Nur mündlich'], ['tap', 'Antippen']], est: [['oral', 'Nur mündlich'], ['dial', 'Stellrad']] };
+const QINPUT_DEF = { text: 'oral', mc: 'tap', est: 'dial' };
+const quizzes = () => { if (!Array.isArray(db.quizzes)) db.quizzes = []; return db.quizzes; };
+const getQuiz = id => quizzes().find(x => x.id === id);
+const newQuestion = (type = 'text') => ({ id: uid(), type, text: '', answer: '', options: ['', '', '', ''], correct: 0, est: { min: '', max: '', value: '', unit: '' }, input: QINPUT_DEF[type], media: null });
+const numv = v => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : NaN; };
+const fmtn = n => String(Math.round(n * 100) / 100).replace('.', ',');
+function qProblem(q) {
+  if (!q.text.trim()) return 'Fragetext fehlt';
+  if (q.type === 'text' && !q.answer.trim()) return 'Lösung fehlt';
+  if (q.type === 'mc') {
+    if (q.options.filter(o => o.trim()).length < 2) return 'Mindestens zwei Antworten eintragen';
+    if (!(q.options[q.correct] || '').trim()) return 'Richtige Antwort markieren';
+  }
+  if (q.type === 'est') {
+    const a = numv(q.est.min), b = numv(q.est.max), v = numv(q.est.value);
+    if (isNaN(a) || isNaN(b) || isNaN(v)) return 'Min, Max und richtigen Wert eintragen';
+    if (a >= b) return 'Min muss kleiner als Max sein';
+    if (v < a || v > b) return 'Der richtige Wert muss in der Spanne liegen';
+  }
+  return '';
+}
+/* Punktabzug einer Schätzung: 'pct' = Prozent der Spannenbreite, 'abs' = echte Einheiten; factor = Punkte pro Prozent bzw. pro Einheit */
+function estPenalty(q, guess, acc) {
+  const a = numv(q.est.min), b = numv(q.est.max), v = numv(q.est.value);
+  const dev = Math.abs(guess - v), f = numv(acc.factor), k = isNaN(f) ? 1 : f;
+  return Math.round((acc.mode === 'abs' ? dev * k : dev / (b - a) * 100 * k) * 10) / 10;
+}
+const defAccount = () => ({ on: false, start: 100, mode: 'pct', factor: 1 });
+const qback = (href, label, title, extra = '') => `<a class="back" href="${href}">‹ ${label}</a><div class="mhead"><h2 class="grow">${esc(title)}</h2>${extra}</div>`;
+const rowLink = (ic, t, sub, click) => `<a class="mrow" href="#" onclick="${click};return false"><span class="mic">${ic}</span><span class="g"><b>${t}</b><span class="ms">${sub}</span></span><span class="ar">›</span></a>`;
+const chipRow = (opts, cur, fn) => `<div class="qchips">${opts.map(([v, l]) => `<button class="qchip${cur === v ? ' on' : ''}" onclick="${fn}('${v}')">${l}</button>`).join('')}</div>`;
+
+function viewQuiz(r = {}) {
+  const z = r.qz && getQuiz(r.qz);
+  if (z && r.qq) { const q = z.questions.find(x => x.id === r.qq); if (q) return viewQEdit(z, q); }
+  if (z) return viewQuizDetail(z);
+  const list = quizzes();
   return `${mhead('Quiz-Sammlung')}
   <div class="mlab">Meine Quiz</div>
-  <div class="empty" style="margin:8px 0">Noch kein Quiz gespeichert.</div>
+  ${list.length ? list.map(x => mrow('📝', esc(x.name), `${x.questions.length} ${x.questions.length === 1 ? 'Frage' : 'Fragen'}`, '#/quiz/' + x.id)).join('') : '<div class="empty" style="margin:8px 0">Noch kein Quiz gespeichert.</div>'}
   <div class="mlab">Neu</div>
-  ${mrow('➕', 'Neues Quiz', 'Fragen einzeln anlegen', '', { soon: 1 })}
+  ${rowLink('➕', 'Neues Quiz', 'Fragen einzeln anlegen', 'quizNew()')}
   ${mrow('📥', 'Quiz importieren', 'Datei aus dem Chat oder Fragenpool', '', { soon: 1 })}
   <div class="card" style="margin-top:18px"><p class="muted" style="margin:0">Quiz lassen sich später einem Spiel in einer Olympiade zuordnen oder direkt als Spontanquiz starten.</p></div>`;
+}
+function exampleHtml(z) {
+  const i = z.questions.findIndex(q => q.type === 'est' && !qProblem(q));
+  if (i < 0) return 'Ein Beispiel erscheint, sobald eine Schätzfrage vollständig ist.';
+  const q = z.questions[i], a = numv(q.est.min), b = numv(q.est.max), v = numv(q.est.value), span = b - a;
+  let g = v + 0.15 * span; if (g > b) g = v - 0.15 * span;
+  const u = q.est.unit ? ' ' + esc(q.est.unit) : '';
+  return `Beispiel (Frage ${i + 1}): Spanne ${fmtn(a)} bis ${fmtn(b)}${u}, richtig ${fmtn(v)}, Schätzung ${fmtn(g)} → Abweichung ${fmtn(Math.abs(g - v))}${u}, Abzug ${fmtn(estPenalty(q, g, z.account))} Punkte.`;
+}
+function viewQuizDetail(z) {
+  if (!z.account) z.account = defAccount();
+  const A = z.account, n = z.questions.length;
+  const f = A.mode === 'abs' ? 'Punkte pro Einheit' : 'Punkte pro Prozent';
+  return `${qback('#/quiz', 'Quiz-Sammlung', z.name, `<button class="icon" style="color:var(--text)" onclick="quizRename()" aria-label="Umbenennen">✏️</button><button class="icon" onclick="quizDel()" aria-label="Löschen">🗑️</button>`)}
+  <div class="mlab">Fragen</div>
+  ${n ? z.questions.map((q, i) => { const p = qProblem(q); return `<div class="mrow" style="gap:8px"><a class="g" href="#/quiz/${z.id}/q/${q.id}" style="flex:1;min-width:0;text-decoration:none;color:inherit"><b>${i + 1}  ${esc(q.text.trim() || 'Ohne Text')}</b><span class="ms">${QTYPE_LBL[q.type]}${q.media ? (q.media.kind === 'image' ? ' · Bild' : ' · Ton') : ''}${p ? ' · <span style="color:var(--danger)">unvollständig</span>' : ''}</span></a><button class="sec" style="padding:6px 10px" onclick="qMove('${q.id}',-1)" aria-label="Nach oben">▲</button><button class="sec" style="padding:6px 10px" onclick="qMove('${q.id}',1)" aria-label="Nach unten">▼</button></div>`; }).join('') : '<div class="empty" style="margin:8px 0">Noch keine Frage.</div>'}
+  <div style="margin-top:10px"><button onclick="qAdd()">➕ Frage hinzufügen</button></div>
+  <div class="mlab">Punktekonto (für Schätzfragen)</div>
+  <div class="card">
+    ${chipRow([['off', 'Aus'], ['on', 'An']], A.on ? 'on' : 'off', 'qzOn')}
+    <p class="muted" style="margin:10px 0 0">Jeder startet mit Punkten. Bei jeder Schätzfrage wird die Abweichung abgezogen, wer 0 hat, scheidet aus.</p>
+    <div id="qzAcc" ${A.on ? '' : 'hidden'}>
+      <label>Startpunkte</label>
+      <input inputmode="numeric" value="${esc(A.start)}" oninput="qzNum('start',this.value)">
+      <label>Abzug nach</label>
+      ${chipRow([['pct', 'Prozent der Spanne'], ['abs', 'Echte Einheit']], A.mode, 'qzMode')}
+      <label id="qzFl">${f}</label>
+      <input inputmode="decimal" value="${esc(A.factor)}" oninput="qzNum('factor',this.value)">
+      <p class="muted" id="qzEx" style="margin:10px 0 0">${exampleHtml(z)}</p>
+    </div>
+  </div>`;
+}
+function viewQEdit(z, q) {
+  const prob = qProblem(q), m = q.media;
+  const hasM = m ? m.kind : 'none';
+  let ans = '';
+  if (q.type === 'text') ans = `<label>Lösung</label><input value="${esc(q.answer)}" oninput="qSet('answer',this.value)" placeholder="Richtige Antwort">`;
+  if (q.type === 'mc') ans = `<label>Antworten, die richtige antippen</label>${q.options.map((o, i) => `<div class="row" style="margin-top:6px"><button class="qchip${q.correct === i ? ' on' : ''}" style="min-width:44px" onclick="qCorrect(${i})">${'ABCD'[i]}</button><input value="${esc(o)}" oninput="qOpt(${i},this.value)" placeholder="Antwort ${'ABCD'[i]}"></div>`).join('')}`;
+  if (q.type === 'est') ans = `<label>Spanne für die Spieler</label>
+    <div class="row"><div class="grow"><label style="margin-top:0">Minimum</label><input inputmode="decimal" value="${esc(q.est.min)}" oninput="qEst('min',this.value)"></div><div class="grow"><label style="margin-top:0">Maximum</label><input inputmode="decimal" value="${esc(q.est.max)}" oninput="qEst('max',this.value)"></div></div>
+    <div class="row"><div class="grow"><label>Richtiger Wert</label><input inputmode="decimal" value="${esc(q.est.value)}" oninput="qEst('value',this.value)"></div><div class="grow"><label>Einheit (optional)</label><input value="${esc(q.est.unit)}" oninput="qEst('unit',this.value)" placeholder="z. B. km"></div></div>
+    <p class="muted" style="margin:6px 0 0">Der richtige Wert darf irgendwo in der Spanne liegen, auch am Rand.</p>`;
+  return `${qback('#/quiz/' + z.id, esc(z.name), 'Frage ' + (z.questions.indexOf(q) + 1))}
+  <div class="mlab">Art</div>
+  ${chipRow(QTYPES, q.type, 'qType')}
+  <label>Fragetext</label>
+  <textarea style="min-height:90px" oninput="qSet('text',this.value)" placeholder="Fragetext">${esc(q.text)}</textarea>
+  <div class="mlab">Bild oder Ton (optional)</div>
+  <div class="qchips">
+    <button class="qchip${hasM === 'image' ? ' on' : ''}" onclick="qPick('image')">Bild</button>
+    <button class="qchip${hasM === 'audio' ? ' on' : ''}" onclick="qPick('audio')">Ton</button>
+    <button class="qchip${hasM === 'none' ? ' on' : ''}" onclick="qMediaOff()">Keins</button>
+  </div>
+  ${m ? (m.kind === 'image' ? `<img src="${m.data}" alt="" style="max-width:100%;max-height:220px;border-radius:12px;margin-top:10px;display:block">` : `<audio controls src="${m.data}" style="width:100%;margin-top:10px"></audio>`) : ''}
+  <div class="mlab">Antwort</div>
+  ${ans}
+  <div class="mlab">Antwort am Handy</div>
+  ${chipRow(QINPUTS[q.type], q.input, 'qInput')}
+  <p class="muted" id="qprob" style="margin:14px 0 0;color:${prob ? 'var(--danger)' : 'var(--muted)'}">${prob || 'Wird automatisch gespeichert. Zeitlimit und Buzzer stellst du beim Spielen ein.'}</p>
+  <div class="row" style="margin-top:14px"><a class="btnlink grow" href="#/quiz/${z.id}">Fertig</a><button class="danger" onclick="qDel()">Frage löschen</button></div>`;
+}
+/* --- Aktionen --- */
+const curZ = () => getQuiz(route().qz);
+const curQ = () => { const z = curZ(); return z && z.questions.find(x => x.id === route().qq); };
+async function quizNew() {
+  const name = await askText({ title: 'Neues Quiz', placeholder: 'z. B. Länder-Quiz', ok: 'Anlegen', validate: v => v ? '' : 'Bitte einen Namen eingeben' });
+  if (!name) return;
+  const z = { id: uid(), name, account: defAccount(), questions: [], created: Date.now() };
+  quizzes().push(z); save(); location.hash = '#/quiz/' + z.id;
+}
+async function quizRename() {
+  const z = curZ(); if (!z) return;
+  const name = await askText({ title: 'Quiz umbenennen', value: z.name, validate: v => v ? '' : 'Bitte einen Namen eingeben' });
+  if (name) { z.name = name; save(); rr(); }
+}
+async function quizDel() {
+  const z = curZ(); if (!z) return;
+  if (!await ask({ icon: '🗑️', title: 'Quiz löschen?', text: `„${z.name}“ mit ${z.questions.length} Fragen wird gelöscht.`, ok: 'Löschen', danger: true })) return;
+  db.quizzes = quizzes().filter(x => x !== z); save(); location.hash = '#/quiz';
+}
+function qAdd() { const z = curZ(); if (!z) return; const q = newQuestion('text'); z.questions.push(q); save(); location.hash = `#/quiz/${z.id}/q/${q.id}`; }
+function qMove(id, d) {
+  const z = curZ(); if (!z) return;
+  const i = z.questions.findIndex(x => x.id === id), j = i + d;
+  if (i < 0 || j < 0 || j >= z.questions.length) return;
+  [z.questions[i], z.questions[j]] = [z.questions[j], z.questions[i]]; save(); rr();
+}
+async function qDel() {
+  const z = curZ(), q = curQ(); if (!z || !q) return;
+  if (!await ask({ icon: '🗑️', title: 'Frage löschen?', text: q.text.trim() ? `„${q.text.trim().slice(0, 80)}“` : 'Diese Frage ist leer.', ok: 'Löschen', danger: true })) return;
+  z.questions = z.questions.filter(x => x !== q); save(); location.hash = '#/quiz/' + z.id;
+}
+function qProbUpd() { const q = curQ(), el = $('qprob'); if (!q || !el) return; const p = qProblem(q); el.textContent = p || 'Wird automatisch gespeichert. Zeitlimit und Buzzer stellst du beim Spielen ein.'; el.style.color = p ? 'var(--danger)' : 'var(--muted)'; }
+function qSet(k, v) { const q = curQ(); if (!q) return; q[k] = v; save(); qProbUpd(); }
+function qOpt(i, v) { const q = curQ(); if (!q) return; q.options[i] = v; save(); qProbUpd(); }
+function qEst(k, v) { const q = curQ(); if (!q) return; q.est[k] = v; save(); qProbUpd(); }
+function qCorrect(i) { const q = curQ(); if (!q) return; q.correct = i; save(); rr(); }
+function qType(t) { const q = curQ(); if (!q || q.type === t) return; q.type = t; q.input = QINPUT_DEF[t]; save(); rr(); }
+function qInput(v) { const q = curQ(); if (!q) return; q.input = v; save(); rr(); }
+function qMediaOff() { const q = curQ(); if (!q || !q.media) return; q.media = null; save(); rr(); }
+function qPick(kind) { const f = $('qFile'); f.accept = kind === 'image' ? 'image/*' : 'audio/*'; f.dataset.kind = kind; f.click(); }
+$('qFile').addEventListener('change', async e => {
+  const f = e.target.files[0], kind = e.target.dataset.kind; e.target.value = '';
+  const q = curQ(); if (!f || !q) return;
+  try {
+    let data;
+    if (kind === 'image') {
+      const url = URL.createObjectURL(f);
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const s = Math.min(1, 900 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      data = c.toDataURL('image/jpeg', 0.78);
+    } else {
+      if (f.size > 900 * 1024) { toast('Der Ton ist zu groß (höchstens etwa 0,9 MB)'); return; }
+      data = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+    }
+    q.media = { kind, data, name: f.name }; save(); rr();
+  } catch (err) { toast('Datei konnte nicht geladen werden'); }
+});
+function qzOn(v) { const z = curZ(); if (!z) return; z.account.on = v === 'on'; save(); rr(); }
+function qzMode(v) { const z = curZ(); if (!z) return; z.account.mode = v; save(); rr(); }
+function qzNum(k, v) {
+  const z = curZ(); if (!z) return;
+  const n = numv(v); if (isNaN(n) || n < 0) return;
+  z.account[k] = n; save();
+  const ex = $('qzEx'); if (ex) ex.innerHTML = exampleHtml(z);
 }
 
 
@@ -1935,6 +2104,7 @@ $('importFile').addEventListener('change', async e => {
     let added = 0;
     d.olympiads.forEach(o => { if (o && o.id && !have.has(o.id)) { db.olympiads.push(o); added++; } });
     (d.players || []).forEach(pl => { if (pl && pl.id && pl.name && !db.players.some(x => x.id === pl.id || nn(x.name) === nn(pl.name))) db.players.push({ id: pl.id, name: String(pl.name) }); });
+    (d.quizzes || []).forEach(z => { if (z && z.id && Array.isArray(z.questions) && !quizzes().some(x => x.id === z.id)) quizzes().push(z); });
     syncPlayers(); save(); render(); toast(added + ' Olympiade(n) importiert');
   } catch (err) { toast('Datei konnte nicht gelesen werden'); }
 });
