@@ -316,6 +316,7 @@ select:focus{border-color:var(--gold)}
 .bzo.ans{border-color:#4caf50;background:#17402a}.bzo.ans .rk2{background:#4caf50;color:#04210f}
 .bzo.wr{opacity:.5;text-decoration:line-through}
 .bzo .nm{flex:1;font-weight:600;font-size:17px;min-width:0}.bzo .dt{font-size:12.5px;color:var(--muted);text-align:right}
+.qtabs{display:flex;gap:4px}.qtabs button{flex:1;min-width:0;padding:5px 0 4px;border-radius:8px;background:var(--bg2);color:var(--muted);border:0;box-shadow:none;display:flex;flex-direction:column;align-items:center;gap:0;font-weight:400}.qtabs button span{font-size:16px;line-height:1.15}.qtabs button small{font-size:10px;line-height:1.2}.qtabs button.on{background:var(--gold);color:#1a1500;font-weight:600}
 .bzst{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}.bzst small{font-size:12px;font-weight:400;color:var(--muted)}.bzst.open{border-color:#4caf50}.bzst.shut{border-color:#e84a5f}
 .hdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:#4a5090}.hdot.on{background:#4caf50}.hdot.me{background:#c9a227}
 </style>
@@ -554,6 +555,7 @@ function route() {
     const o = db.olympiads.find(x => x.id === h[1]);
     if (o) return { o, tab: h[2] || 'details', sub: h[3] };
   }
+  if (h[0] === 'quizrun' && h[1]) return { o: null, page: 'qrun', qz: h[1] };
   if (h[0] === 'quiz') return { o: null, page: 'quiz', qz: h[1], qq: h[2] === 'q' ? h[3] : null };
   if (['spieler', 'olympiaden', 'spontan', 'quiz', 'werkzeuge', 'sicherung'].includes(h[0])) return { o: null, page: h[0] };
   if (h[0] === 'w' && h[1]) return { o: null, page: 'w', sub: h[1] };
@@ -564,6 +566,7 @@ const cur = () => route().o;
 
 function render() {
   const r = route();
+  if (r.page !== 'w' && r.page !== 'qrun') QZ.from = false;
   if (r.page !== 'buzz' && typeof PB !== 'undefined' && PB.ws) pbStop();
   $('app').innerHTML = r.o ? viewOlympiad(r.o, r.tab, r.sub) : viewPage(r);
   if (r.o && r.tab === 'run') AudioKit.load();
@@ -575,6 +578,7 @@ function viewPage(r) {
     case 'olympiaden': return viewOlympiaden();
     case 'spontan': return viewSpontan();
     case 'quiz': return viewQuiz(r);
+    case 'qrun': return viewQuizRun(r.qz);
     case 'werkzeuge': return viewWerkzeuge();
     case 'sicherung': return viewSicherung();
     case 'w': return viewTool(r.sub);
@@ -677,12 +681,12 @@ function viewSpontan() {
   <div class="mlab">Starten</div>
   ${mrow('🔔', 'Buzzer-Raum öffnen', 'Alle spielen mit dem Handy', '#/w/buzzer')}
   ${mrow('✨', 'Neues Quiz zusammenstellen', 'Thema, Anzahl, Schwierigkeit', '', { soon: 1 })}
-  ${mrow('📋', 'Aus meiner Quiz-Sammlung wählen', 'Gespeicherte Quiz', '', { soon: 1 })}
+  ${quizzes().filter(x => x.questions.length).map(x => mrow('▶️', esc(x.name), `${x.questions.length} Fragen · Quiz starten`, '#/quizrun/' + x.id)).join('') || mrow('📋', 'Aus meiner Quiz-Sammlung wählen', 'Lege zuerst ein Quiz an', '#/quiz')}
   <div class="mlab">Wer führt durch?</div>
   ${chips('lead', [['app', 'App führt durch'], ['host', 'Ich bin Quizmaster']], 'app')}
   <div class="mlab">Spielweise</div>
   ${chips('mode', [['solo', 'Jeder für sich'], ['team', 'In Teams']], 'solo')}
-  <div class="card" style="margin-top:18px"><p class="muted" style="margin:0">Das Spontanquiz wird mit dem Buzzer-Raum freigeschaltet. Dann treten alle Mitspieler per QR-Code bei.</p></div>`;
+  <div class="card" style="margin-top:18px"><p class="muted" style="margin:0">Du führst als Quizmaster durch. Die Mitspieler treten per QR-Code bei und buzzern am Handy. „App führt durch“ folgt später.</p></div>`;
 }
 /* ============ Quiz-Sammlung ============ */
 const QTYPES = [['text', 'Frage'], ['mc', 'Multiple Choice'], ['est', 'Schätzen']];
@@ -748,7 +752,7 @@ function viewQuizDetail(z) {
   return `${qback('#/quiz', 'Quiz-Sammlung', z.name, `<button class="icon" style="color:var(--text)" onclick="quizRename()" aria-label="Umbenennen">✏️</button><button class="icon" onclick="quizDel()" aria-label="Löschen">🗑️</button>`)}
   <div class="mlab">Fragen</div>
   ${n ? z.questions.map((q, i) => { const p = qProblem(q); return `<div class="mrow" style="gap:8px"><a class="g" href="#/quiz/${z.id}/q/${q.id}" style="flex:1;min-width:0;text-decoration:none;color:inherit"><b>${i + 1}  ${esc(q.text.trim() || 'Ohne Text')}</b><span class="ms">${QTYPE_LBL[q.type]}${q.media ? (q.media.kind === 'image' ? ' · Bild' : ' · Ton') : ''}${p ? ' · <span style="color:var(--danger)">unvollständig</span>' : ''}</span></a><button class="sec" style="padding:6px 10px" onclick="qMove('${q.id}',-1)" aria-label="Nach oben">▲</button><button class="sec" style="padding:6px 10px" onclick="qMove('${q.id}',1)" aria-label="Nach unten">▼</button></div>`; }).join('') : '<div class="empty" style="margin:8px 0">Noch keine Frage.</div>'}
-  <div style="margin-top:10px"><button onclick="qAdd()">➕ Frage hinzufügen</button></div>
+  <div class="row wrap" style="margin-top:10px"><button onclick="qAdd()">➕ Frage hinzufügen</button>${n ? `<a class="btnlink sec" href="#/quizrun/${z.id}">▶ Quiz starten</a>` : ''}</div>
   <div class="mlab">Punktekonto (für Schätzfragen)</div>
   <div class="card">
     ${chipRow([['off', 'Aus'], ['on', 'An']], A.on ? 'on' : 'off', 'qzOn')}
@@ -862,6 +866,100 @@ function qzNum(k, v) {
 }
 
 
+/* ============ Quiz spielen (Spielleiter-Ansicht, Schritt 1: mündlich mit Buzzer) ============ */
+const QRUN_KEY = 'spieleolympiade.qrun';
+const QZ = { from: false, id: null, d: null };
+const QTABS = [['ueber', '📋', 'Überblick'], ['buzz', '🔔', 'Buzzer'], ['pts', '🏅', 'Punkte'], ['time', '⏱', 'Timer'], ['fr', '❓', 'Fragen']];
+function qzLoad(id) {
+  let all = {}; try { all = JSON.parse(lsGet(QRUN_KEY, '{}')) || {}; } catch (e) {}
+  QZ.id = id; QZ.d = Object.assign({ idx: 0, tab: 'ueber', scores: {}, extra: [], done: false }, all[id] || {});
+}
+function qzSave() { let all = {}; try { all = JSON.parse(lsGet(QRUN_KEY, '{}')) || {}; } catch (e) {} all[QZ.id] = QZ.d; lsSet(QRUN_KEY, JSON.stringify(all)); }
+const qzName = id => { const r = BZ.view && BZ.view.roster.find(x => x.id === id); if (r) return r.name; const p = db.players.find(x => x.id === id); return p ? dispName(p) : '?'; };
+function qzIds() {
+  const s = new Set(Object.keys(QZ.d.scores)); QZ.d.extra.forEach(i => s.add(i));
+  if (BZ.view) BZ.view.roster.filter(r => r.taken).forEach(r => s.add(r.id));
+  return [...s];
+}
+const qzPts = id => QZ.d.scores[id] || 0;
+const fmtp = n => String(Math.round(n * 10) / 10).replace('.', ',');
+function qzRank() { return qzIds().map(id => ({ id, name: qzName(id), p: qzPts(id) })).sort((a, b) => b.p - a.p || a.name.localeCompare(b.name, 'de')); }
+function bzOrder(v, open) {
+  return v && v.buzzes.length ? v.buzzes.map(b => `<div class="bzo${b.answering ? ' ans' : ''}${b.wrong ? ' wr' : ''}"><span class="rk2">${b.rank}</span><span class="nm">${esc(b.name)}</span><span class="dt">${b.answering ? 'antwortet' : b.wrong ? 'falsch' : ''}${b.dt > 0 ? `<br>+${b.dt} ms` : ''}</span></div>`).join('')
+    : `<div class="empty" style="margin:8px 0">${!v || !v.round.no ? 'Starte die erste Runde.' : open ? 'Runde läuft. Noch niemand hat gebuzzert.' : 'Runde gesperrt.'}</div>`;
+}
+function qzQuestionCard(q, i, n) {
+  const m = q.media;
+  let sol = '';
+  if (q.type === 'text') sol = esc(q.answer);
+  if (q.type === 'mc') sol = q.options.map((o, k) => o.trim() ? `<div style="${k === q.correct ? 'color:var(--gold2);font-weight:700' : 'color:var(--muted)'}">${'ABCD'[k]}  ${esc(o)}${k === q.correct ? '  ✓' : ''}</div>` : '').join('');
+  if (q.type === 'est') { const u = q.est.unit ? ' ' + esc(q.est.unit) : ''; sol = `Richtig: <b>${esc(fmtn(numv(q.est.value)))}${u}</b><div class="muted">Spanne ${esc(fmtn(numv(q.est.min)))} bis ${esc(fmtn(numv(q.est.max)))}${u}</div>`; }
+  return `<div class="card"><div class="muted" style="margin:0 0 6px">Frage ${i + 1} von ${n} · ${QTYPE_LBL[q.type]}</div>
+    <div style="font-size:19px;font-weight:600;line-height:1.35">${esc(q.text)}</div>
+    ${m ? (m.kind === 'image' ? `<img src="${m.data}" alt="" style="max-width:100%;max-height:240px;border-radius:12px;margin-top:10px;display:block">` : `<audio controls src="${m.data}" style="width:100%;margin-top:10px"></audio>`) : ''}
+    <div class="mlab" style="margin-top:14px">Lösung</div><div>${sol}</div></div>`;
+}
+function qzLive() {
+  const v = BZ.view, open = v && v.round.open, anyAns = v && v.buzzes.some(b => b.answering);
+  if (!BZ.code) return `<div class="card"><p style="margin-top:0">Für den Buzzer brauchst du einen Raum. Ohne Raum kannst du mündlich weiterspielen und Punkte von Hand vergeben.</p><button class="sec" style="width:100%" onclick="bzCreate()">🔔 Raum öffnen</button></div>`;
+  const rk = qzRank();
+  return `<div class="tbtn sm"><button onclick="qzOpen()">▶ Neue Runde</button><button class="sec bzst ${open ? 'open' : 'shut'}" onclick="bzAct('${open ? 'lock' : 'unlock'}')">${open ? '🟢 Aktiv' : '🔴 Gesperrt'}<small>${open ? 'Tippen zum Sperren' : 'Tippen zum Öffnen'}</small></button></div>
+  <div class="mlab">Reihenfolge</div>${bzOrder(v, open)}
+  ${anyAns ? `<div class="tbtn sm" style="margin-top:8px"><button class="sec" style="border-color:#4caf50" onclick="qzRight()">✓ Richtig +1</button><button class="sec" style="border-color:var(--danger)" onclick="bzAct('wrong')">✗ Falsch, nächster</button></div>` : ''}
+  <div class="mlab">Punkte</div>
+  <div class="muted">${rk.length ? rk.slice(0, 6).map(x => `${esc(x.name)} ${fmtp(x.p)}`).join(' · ') : 'Noch keine Mitspieler.'}</div>`;
+}
+function viewQuizRun(id) {
+  const z = getQuiz(id);
+  if (!z) return `${mhead('Quiz')}<div class="empty">Dieses Quiz gibt es nicht mehr.</div>`;
+  if (QZ.id !== id) qzLoad(id);
+  const d = QZ.d, n = z.questions.length;
+  setTimeout(() => { if (BZ.code && !BZ.ws && BZ.status !== 'connecting') bzConnect(); else if (BZ.ws) bzSendRoster(); }, 0);
+  const tabs = `<div class="qtabs">${QTABS.map(([k, ic, l]) => `<button class="${d.tab === k ? 'on' : ''}" onclick="qzTab('${k}')"><span>${ic}</span><small>${l}</small></button>`).join('')}</div>`;
+  const head = `<a class="back" href="#/quiz/${z.id}">‹ ${esc(z.name)}</a>`;
+  let body = '';
+  if (!n) body = '<div class="empty">Dieses Quiz hat noch keine Fragen.</div>';
+  else if (d.tab === 'ueber') {
+    if (d.done) {
+      const rk = qzRank();
+      body = `<div class="card"><h2 style="margin-top:0">🏆 Endstand</h2>${rk.length ? rk.map((x, i) => `<div class="bzo${i === 0 && x.p > 0 ? ' ans' : ''}"><span class="rk2">${i + 1}</span><span class="nm">${esc(x.name)}</span><span class="dt">${fmtp(x.p)}</span></div>`).join('') : '<div class="muted">Keine Punkte vergeben.</div>'}</div>
+      <div class="tbtn sm" style="margin-top:12px"><button class="sec" onclick="qzBack()">‹ Zur letzten Frage</button><button class="sec" onclick="qzRestart()">Neu starten</button></div>`;
+    } else {
+      const i = Math.min(d.idx, n - 1), q = z.questions[i];
+      body = `${qzQuestionCard(q, i, n)}<div id="qrLive">${qzLive()}</div>
+      <div class="tbtn sm" style="margin-top:14px"><button class="sec" ${i === 0 ? 'disabled' : ''} onclick="qzPrev()">‹ Zurück</button><button onclick="qzNext()">${i === n - 1 ? 'Quiz beenden' : 'Weiter ›'}</button></div>`;
+    }
+  } else if (d.tab === 'buzz') body = toolBuzzer(true);
+  else if (d.tab === 'pts') {
+    const ids = qzIds().map(id => ({ id, name: qzName(id) })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    const more = sortedPlayers().filter(p => !ids.some(x => x.id === p.id));
+    body = `<div class="muted" style="margin:0 0 8px">Namen antippen gibt +1. Mit − und + korrigierst du.</div>
+    ${ids.length ? ids.map(x => `<div class="mrow" style="gap:8px;padding:8px 12px"><button class="sec" style="flex:1;text-align:left;min-height:46px" onclick="qzAdd('${x.id}',1)">${ava(x.id)} ${esc(x.name)}</button><button class="sec" style="padding:8px 14px" onclick="qzAdd('${x.id}',-1)">−</button><b style="min-width:34px;text-align:center;font-size:20px">${fmtp(qzPts(x.id))}</b><button class="sec" style="padding:8px 14px" onclick="qzAdd('${x.id}',1)">+</button></div>`).join('') : '<div class="empty" style="margin:8px 0">Noch keine Mitspieler. Füge unten Spieler hinzu oder lass sie dem Raum beitreten.</div>'}
+    ${more.length ? `<div class="mlab">Spieler hinzufügen</div><div class="qchips">${more.map(p => `<button class="qchip" onclick="qzExtra('${p.id}')">${ava(p.id)}${esc(dispName(p))}</button>`).join('')}</div>` : ''}`;
+  } else if (d.tab === 'time') body = `<div class="card"><p style="margin-top:0">Timer und Stoppuhr öffnen sich als eigene Seite. Danach kommst du hierher zurück.</p><div class="tbtn sm"><button onclick="qzTool('timer')">⏱ Timer</button><button class="sec" onclick="qzTool('stoppuhr')">⏲ Stoppuhr</button></div></div>`;
+  else if (d.tab === 'fr') body = z.questions.map((q, k) => `<a class="mrow" href="#" onclick="qzGo(${k});return false" style="${k === d.idx && !d.done ? 'border-color:var(--gold)' : ''}"><span class="mic">${k + 1}</span><span class="g"><b>${esc(q.text.trim() || 'Ohne Text')}</b><span class="ms">${QTYPE_LBL[q.type]}</span></span><span class="ar">›</span></a>`).join('');
+  return `${head}<div style="position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0">${tabs}</div>${body}`;
+}
+/* --- Aktionen --- */
+function qzTab(k) { QZ.d.tab = k; qzSave(); rr(); }
+function qzGo(i) { QZ.d.idx = i; QZ.d.done = false; QZ.d.tab = 'ueber'; qzSave(); qzReset(); rr(); }
+function qzReset() { if (BZ.ws) { bzSend({ t: 'reset' }); bzSend({ t: 'lock' }); } }
+function qzNext() { const z = getQuiz(QZ.id); if (QZ.d.idx >= z.questions.length - 1) { QZ.d.done = true; qzSave(); qzReset(); rr(); window.scrollTo(0, 0); return; } QZ.d.idx++; qzSave(); qzReset(); rr(); window.scrollTo(0, 0); }
+function qzPrev() { if (QZ.d.idx > 0) { QZ.d.idx--; qzSave(); qzReset(); rr(); window.scrollTo(0, 0); } }
+function qzBack() { QZ.d.done = false; qzSave(); rr(); }
+async function qzRestart() { if (!await ask({ icon: '🔄', title: 'Neu starten?', text: 'Alle Punkte werden gelöscht und das Quiz beginnt bei Frage 1.', ok: 'Neu starten', danger: true })) return; QZ.d = { idx: 0, tab: 'ueber', scores: {}, extra: [], done: false }; qzSave(); qzReset(); rr(); }
+function qzOpen() { bzSendRoster(); if (!bzSend({ t: 'open' })) toast('Keine Verbindung'); }
+function qzAdd(id, d) { QZ.d.scores[id] = Math.round((qzPts(id) + d) * 10) / 10; qzSave(); rr(); }
+function qzExtra(id) { if (!QZ.d.extra.includes(id)) QZ.d.extra.push(id); qzSave(); rr(); }
+function qzRight() {
+  const v = BZ.view, a = v && v.buzzes.find(b => b.answering);
+  if (!a) { toast('Niemand antwortet gerade'); return; }
+  QZ.d.scores[a.id] = qzPts(a.id) + 1; qzSave(); bzSend({ t: 'lock' });
+  toast('+1 für ' + qzName(a.id)); rr();
+}
+function qzTool(k) { QZ.from = true; location.hash = '#/w/' + k; }
+
+
 /* ============ QR-Code ============ */
 /* QR-Code-Generator (Byte-Modus, Fehlerkorrektur L, Version 1–10) */
 const QR = (() => {
@@ -966,8 +1064,8 @@ const clk = () => performance.timeOrigin + performance.now();
 /* ---- Spielleiter (Host) ---- */
 const BZ = { ws: null, code: null, key: null, view: null, status: 'off', retry: 0, t: null, rosterKey: '', showQr: null, everOn: false, err: '' };
 (() => { try { const r = JSON.parse(lsGet(ROOM_KEY, 'null')); if (r && r.code) { BZ.code = r.code; BZ.key = r.key; } } catch (e) {} })();
-const isBzRoute = () => { const r = route(); return (r.page === 'w' && r.sub === 'buzzer') || (r.tab === 'w' && r.sub === 'buzzer'); };
-const paintBz = () => { if (isBzRoute()) rr(); };
+const isBzRoute = () => { const r = route(); return (r.page === 'w' && r.sub === 'buzzer') || (r.tab === 'w' && r.sub === 'buzzer') || r.page === 'qrun'; };
+const paintBz = () => { if (!isBzRoute()) return; const r = route(); const el = r.page === 'qrun' && QZ.d && QZ.d.tab === 'ueber' && $('qrLive'); if (el) el.innerHTML = qzLive(); else rr(); };
 function bzRoster() { return people().filter(x => !x.owner).map(x => { const pl = db.players.find(p => p.id === x.pid); return { id: x.key, name: x.name, emoji: (pl && pl.emoji) || '', color: (pl && pl.color) || '' }; }); }
 function bzSend(o) { if (BZ.ws && BZ.ws.readyState === 1) { BZ.ws.send(JSON.stringify(o)); return true; } return false; }
 function bzSendRoster(force) { const list = bzRoster(), k = JSON.stringify(list); if (force || k !== BZ.rosterKey) { if (bzSend({ t: 'roster', list })) BZ.rosterKey = k; } }
@@ -996,8 +1094,8 @@ const bzLink = () => location.href.split('#')[0] + '#/buzz/' + BZ.code + '/' + e
 function bzCopy() { try { navigator.clipboard.writeText(bzLink()); toast('Link kopiert'); } catch (e) { toast('Kopieren nicht möglich'); } }
 function bzAct(t) { bzSendRoster(); if (!bzSend({ t })) toast('Keine Verbindung'); }
 
-function toolBuzzer() {
-  const head = tback('Buzzer-Raum');
+function toolBuzzer(inline) {
+  const head = inline ? '' : tback('Buzzer-Raum');
   setTimeout(() => { if (BZ.code && !BZ.ws && BZ.status !== 'connecting') bzConnect(); else if (BZ.ws) bzSendRoster(); }, 0);
   if (!BZ.code) return `${head}
   ${BZ.err ? `<div class="card"><p style="margin:0;color:var(--danger)">${esc(BZ.err)}</p></div>` : ''}
@@ -1010,13 +1108,12 @@ function toolBuzzer() {
   const open = v && v.round.open;
   const qrBox = showQr ? `<div class="card" style="text-align:center"><div class="hq">${QR.svg(bzLink())}</div><div class="hcode">${esc(BZ.code)}</div><div class="row wrap" style="justify-content:center;margin-top:8px"><button class="sec" onclick="bzCopy()">🔗 Link kopieren</button><button class="sec" onclick="BZ.showQr=false;rr()">QR-Code ausblenden</button></div></div>`
     : `<button class="sec" style="width:100%" onclick="BZ.showQr=true;rr()">QR-Code zeigen (${esc(BZ.code)})</button>`;
-  const order = v && v.buzzes.length ? v.buzzes.map(b => `<div class="bzo${b.answering ? ' ans' : ''}${b.wrong ? ' wr' : ''}"><span class="rk2">${b.rank}</span><span class="nm">${esc(b.name)}</span><span class="dt">${b.answering ? 'antwortet' : b.wrong ? 'falsch' : ''}${b.dt > 0 ? `<br>+${b.dt} ms` : ''}</span></div>`).join('')
-    : `<div class="empty" style="margin:8px 0">${!v || !v.round.no ? 'Starte die erste Runde.' : open ? 'Runde läuft. Noch niemand hat gebuzzert.' : 'Runde gesperrt.'}</div>`;
+  const order = bzOrder(v, open);
   const anyAns = v && v.buzzes.some(b => b.answering);
   return `${head}
   <div class="muted" style="margin:0 0 10px">${status}${v && v.round.no ? ` · Runde ${v.round.no}` : ''}</div>
   ${qrBox}
-  <div class="tbtn sm" style="margin-top:14px"><button onclick="bzAct('open')">▶ Neue Runde</button><button class="sec bzst ${open ? 'open' : 'shut'}" onclick="bzAct('${open ? 'lock' : 'unlock'}')">${open ? '🟢 Offen' : '🔴 Gesperrt'}<small>${open ? 'Tippen zum Sperren' : 'Tippen zum Öffnen'}</small></button></div>
+  <div class="tbtn sm" style="margin-top:14px"><button onclick="bzAct('open')">▶ Neue Runde</button><button class="sec bzst ${open ? 'open' : 'shut'}" onclick="bzAct('${open ? 'lock' : 'unlock'}')">${open ? '🟢 Aktiv' : '🔴 Gesperrt'}<small>${open ? 'Tippen zum Sperren' : 'Tippen zum Öffnen'}</small></button></div>
   <div class="mlab">Reihenfolge</div>${order}
   ${anyAns ? `<button style="width:100%;min-height:64px;font-size:18px" onclick="bzAct('wrong')">✗ Falsch, nächster</button>` : ''}
   ${v && v.buzzes.length ? `<button class="sec" style="width:100%;margin-top:10px" onclick="bzAct('reset')">Runde leeren</button>` : ''}
@@ -1114,7 +1211,7 @@ function viewWerkzeuge() {
   ${mrow('🔔', 'Buzzer-Raum', 'Mit QR-Code, braucht den Server', '#/w/buzzer')}`;
 }
 function toolCtx() { const r = route(); if (r.o && r.tab === 'w') { const o = r.o; return { o, g: o.current ? gById(o, o.current) : null }; } return null; }
-const tback = t => { const c = toolCtx(); return `<a class="back" href="${c ? '#/o/' + c.o.id + '/run' : '#/werkzeuge'}">‹ ${c ? 'Zurück zum Spiel' : 'Werkzeuge'}</a><div class="mhead"><h2>${t}</h2></div>`; };
+const tback = t => { const c = toolCtx(); if (!c && QZ.from && QZ.id) return `<a class="back" href="#/quizrun/${QZ.id}">‹ Zurück zum Quiz</a><div class="mhead"><h2>${t}</h2></div>`; return `<a class="back" href="${c ? '#/o/' + c.o.id + '/run' : '#/werkzeuge'}">‹ ${c ? 'Zurück zum Spiel' : 'Werkzeuge'}</a><div class="mhead"><h2>${t}</h2></div>`; };
 /* Personen: in der Olympiade die Teilnehmer (Spielleiter markiert), sonst alle Spieler */
 function people() {
   const c = toolCtx();
