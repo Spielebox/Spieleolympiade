@@ -1,6 +1,7 @@
 // Reine Raum-Logik ohne Cloudflare-Abhängigkeit (testbar mit Node).
 export const TIE_MS = -1;          // keine Gleichzeitigkeit: laut ermittelter Zeit gibt es immer genau einen Ersten
 export const MAX_AGE_MS = 3000;    // älteste erlaubte Rückdatierung eines Buzzers
+export const HAND_MAX = 14000;     // größte erlaubte Handschrift-Antwort (Zeichen der Bild-URL)
 
 export function newState(hostKey, now) {
   return { hostKey, created: now, roster: [], claims: {}, guestNo: 0,
@@ -71,6 +72,41 @@ export function markWrong(st, ids) { ids.forEach(i => { if (!st.round.wrong.incl
 export function wrongNext(st) { markWrong(st, answering(st)); }
 export function resetBuzz(st) { st.round.buzzes = []; st.round.wrong = []; }
 
+/* ---- Fragen mit Antworten am Handy ---- */
+export function niceStep(span) {
+  const raw = span / 200, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+  return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * mag;
+}
+export function askQuestion(st, q, now) {
+  if (!q || typeof q !== 'object') return false;
+  const input = ['tap', 'type', 'hand', 'dial'].includes(q.input) ? q.input : null; if (!input) return false;
+  const o = { no: 0, input, text: clean(q.text, 400), open: true, at: now, answers: {} };
+  if (input === 'tap') {
+    o.options = (Array.isArray(q.options) ? q.options : []).slice(0, 6).map(x => clean(x, 80));
+    if (o.options.filter(x => x).length < 2) return false;
+  }
+  if (input === 'dial') {
+    const a = Number(q.est && q.est.min), b = Number(q.est && q.est.max);
+    if (!(isFinite(a) && isFinite(b) && a < b)) return false;
+    o.est = { min: a, max: b, unit: clean(q.est.unit, 12), step: niceStep(b - a) };
+  }
+  o.no = st.qno = (st.qno || 0) + 1; st.q = o; return true;
+}
+export const lockQuestion = st => { if (st.q) st.q.open = false; };
+export const openQuestion = st => { if (st.q) st.q.open = true; };
+export const clearQuestion = st => { st.q = null; };
+// Ergebnis: 'ok' | 'hand' (Bild muss vom Aufrufer abgelegt werden) | 'closed' | 'dup' | 'bad'
+export function submitAnswer(st, rid, v) {
+  const Q = st.q; if (!Q || !Q.open) return 'closed';
+  if (!st.roster.some(r => r.id === rid)) return 'bad';
+  if (Q.answers[rid] !== undefined) return 'dup';
+  if (Q.input === 'tap') { const i = Number(v); if (!Number.isInteger(i) || i < 0 || i >= Q.options.length || !Q.options[i]) return 'bad'; Q.answers[rid] = { v: i, t: Date.now() }; return 'ok'; }
+  if (Q.input === 'type') { const x = clean(v, 200); if (!x) return 'bad'; Q.answers[rid] = { v: x, t: Date.now() }; return 'ok'; }
+  if (Q.input === 'dial') { let n = Number(v); if (!isFinite(n)) return 'bad'; n = Math.min(Q.est.max, Math.max(Q.est.min, n)); Q.answers[rid] = { v: n, t: Date.now() }; return 'ok'; }
+  if (Q.input === 'hand') { if (typeof v !== 'string' || !v.startsWith('data:image/jpeg;base64,') || v.length > HAND_MAX) return 'bad'; Q.answers[rid] = { hand: true, t: Date.now() }; return 'hand'; }
+  return 'bad';
+}
+
 const nameOf = (st, id) => (st.roster.find(r => r.id === id) || {}).name || '?';
 
 export function viewForPlayer(st, dev) {
@@ -84,15 +120,18 @@ export function viewForPlayer(st, dev) {
     t: 'state', me,
     roster: st.roster.map(r => ({ id: r.id, name: r.name, emoji: r.emoji, color: r.color, taken: !!st.claims[r.id], mine: r.id === me })),
     round: { no: R.no, open: R.open, mine, answering: ans.map(i => nameOf(st, i)), anyBuzz: R.buzzes.length > 0 },
+    q: st.q ? { no: st.q.no, input: st.q.input, text: st.q.text, options: st.q.options || null, est: st.q.est || null, open: st.q.open, mine: me ? st.q.answers[me] !== undefined : false, v: me && st.q.answers[me] && !st.q.answers[me].hand ? st.q.answers[me].v : null } : null,
   };
 }
 
-export function viewForHost(st, online) {
+export function viewForHost(st, online, hand) {
   const R = st.round, ans = new Set(answering(st)), wrong = new Set(R.wrong), t0 = R.buzzes.length ? R.buzzes[0].t : 0;
   const gs = groups(st);
   return {
     t: 'host', round: { no: R.no, open: R.open },
     roster: st.roster.map(r => ({ id: r.id, name: r.name, emoji: r.emoji, color: r.color, taken: !!st.claims[r.id], online: online ? online.has(st.claims[r.id]) : false, guest: !!r.guest })),
     buzzes: R.buzzes.map((b, i) => ({ id: b.id, name: nameOf(st, b.id), dt: Math.round(b.t - t0), rtt: b.rtt, rank: gs.find(g => g.ids.includes(b.id)).start + 1, answering: ans.has(b.id), wrong: wrong.has(b.id) })),
+    q: st.q ? { no: st.q.no, input: st.q.input, open: st.q.open, est: st.q.est || null,
+      answers: Object.keys(st.q.answers).map(id => { const a = st.q.answers[id]; return { id, name: nameOf(st, id), v: a.hand ? ((hand && hand[id]) || null) : a.v, t: a.t }; }).sort((x, y) => x.t - y.t) } : null,
   };
 }

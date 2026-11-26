@@ -44,7 +44,12 @@ export class Room extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.st = null;
-    ctx.blockConcurrencyWhile(async () => { this.st = (await ctx.storage.get("st")) || null; });
+    this.hand = {};
+    ctx.blockConcurrencyWhile(async () => {
+      this.st = (await ctx.storage.get("st")) || null;
+      const h = await ctx.storage.list({ prefix: "h:" });
+      h.forEach((v, k) => { this.hand[k.slice(2)] = v; });
+    });
   }
 
   async fetch(req) {
@@ -65,6 +70,12 @@ export class Room extends DurableObject {
   async save() {
     await this.ctx.storage.put("st", this.st);
     await this.ctx.storage.setAlarm(Date.now() + LIFETIME);
+  }
+
+  async clearHand() {
+    const keys = Object.keys(this.hand).map((id) => "h:" + id);
+    this.hand = {};
+    if (keys.length) await this.ctx.storage.delete(keys);
   }
 
   async alarm() {
@@ -88,13 +99,13 @@ export class Room extends DurableObject {
     const online = this.onlineDevs();
     this.getSockets().forEach((ws) => {
       const a = this.att(ws);
-      if (a.role === "host") this.send(ws, L.viewForHost(this.st, online));
+      if (a.role === "host") this.send(ws, L.viewForHost(this.st, online, this.hand));
       else if (a.role === "player") this.send(ws, L.viewForPlayer(this.st, a.dev));
     });
   }
 
   async webSocketMessage(ws, raw) {
-    if (typeof raw !== "string" || raw.length > 6000 || !this.st) return;
+    if (typeof raw !== "string" || raw.length > 20000 || !this.st) return;
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
     const now = Date.now();
     if (m.t === "ping") { this.send(ws, { t: "pong", c: m.c, s: now }); return; }
@@ -124,6 +135,10 @@ export class Room extends DurableObject {
         case "reset": L.resetBuzz(this.st); changed = true; break;
         case "wrong": L.wrongNext(this.st); changed = true; break;
         case "markWrong": L.markWrong(this.st, Array.isArray(m.ids) ? m.ids.map(String) : []); changed = true; break;
+        case "ask": { const ok = L.askQuestion(this.st, m.q, now); if (ok) { await this.clearHand(); changed = true; } else this.send(ws, { t: "error", e: "badq" }); break; }
+        case "qlock": L.lockQuestion(this.st); changed = true; break;
+        case "qopen": L.openQuestion(this.st); changed = true; break;
+        case "qclear": L.clearQuestion(this.st); await this.clearHand(); changed = true; break;
         case "kick": delete this.st.claims[String(m.id)]; changed = true; break;
         case "end": await this.alarm(); return;
       }
@@ -132,6 +147,14 @@ export class Room extends DurableObject {
         case "claim": { const r = L.claim(this.st, a.dev, String(m.id)); if (r !== "ok") this.send(ws, { t: "error", e: r }); changed = true; break; }
         case "guest": { const r = L.addGuest(this.st, a.dev, m.name); if (r !== "ok") this.send(ws, { t: "error", e: r }); changed = true; break; }
         case "release": L.release(this.st, a.dev); changed = true; break;
+        case "answer": {
+          const rid = L.ridOf(this.st, a.dev); if (!rid) break;
+          const r = L.submitAnswer(this.st, rid, m.v);
+          if (r === "hand") { this.hand[rid] = m.v; await this.ctx.storage.put("h:" + rid, m.v); changed = true; }
+          else if (r === "ok") changed = true;
+          else this.send(ws, { t: "error", e: "ans-" + r });
+          break;
+        }
         case "buzz": { const rid = L.ridOf(this.st, a.dev); if (rid) changed = L.buzz(this.st, rid, m.ts, now, m.rtt); break; }
       }
     }
