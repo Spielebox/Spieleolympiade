@@ -291,6 +291,23 @@ select:focus{border-color:var(--gold)}
 
 /* Buzzer */
 #bz{position:fixed;inset:0;z-index:60;background:#0e1126;display:flex;flex-direction:column;align-items:center;padding:max(14px,env(safe-area-inset-top)) 14px max(18px,env(safe-area-inset-bottom));overflow:auto;color:var(--text)}
+.bzq{flex:1;width:100%;max-width:480px;display:flex;flex-direction:column;gap:14px;justify-content:center;overflow:auto;padding:6px 0}
+.bzqt{font-size:22px;font-weight:600;line-height:1.35;text-align:center}
+.bzopts{display:grid;gap:10px}
+.bzopt{display:flex;align-items:center;gap:14px;text-align:left;justify-content:flex-start;font-size:19px;padding:18px 16px;border-radius:16px;background:var(--card);border:1px solid var(--line);color:var(--text);min-height:64px;font-weight:500}
+.bzopt b{width:36px;height:36px;border-radius:50%;background:#2a3170;display:grid;place-items:center;flex:none;font-weight:700}
+.bzin{font-size:20px;padding:16px;text-align:center}
+.bzsend{width:100%;min-height:62px;font-size:20px}
+.bzval{font-family:'Archivo Black',system-ui,sans-serif;font-size:44px;text-align:center;color:var(--gold)}
+.bzrange,input[type=range].bzrange{-webkit-appearance:none;appearance:none;width:100%;height:56px;background:transparent;border:0;padding:0;box-shadow:none;margin:0}
+.bzrange::-webkit-slider-runnable-track{height:10px;border-radius:5px;background:#2a3170}
+.bzrange::-webkit-slider-thumb{-webkit-appearance:none;width:46px;height:46px;border-radius:50%;background:#f6c84c;border:4px solid #fff;margin-top:-18px}
+.bzrange::-moz-range-track{height:10px;border-radius:5px;background:#2a3170}
+.bzrange::-moz-range-thumb{width:38px;height:38px;border-radius:50%;background:#f6c84c;border:4px solid #fff}
+.bzmm{display:flex;justify-content:space-between;color:var(--muted);font-size:14px;margin-top:-8px}
+.bzfine{display:flex;gap:10px}.bzfine button{flex:1;min-height:56px;font-size:22px}
+.bzcan{width:100%;aspect-ratio:8/5;background:#fff;border-radius:14px;touch-action:none;display:block}
+.bzdone{text-align:center;display:grid;gap:10px;font-size:19px}.bzck{font-size:54px;color:#4caf50;line-height:1}.bzmine{font-weight:600;font-size:22px}
 .bztop{display:flex;justify-content:space-between;align-items:center;width:100%;max-width:480px;min-height:44px;gap:8px}
 .bzme{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px}
 .bzchg{background:transparent;border:1px solid var(--line);color:var(--muted);padding:6px 12px;border-radius:999px;font-size:13px;min-height:0;box-shadow:none}
@@ -317,6 +334,7 @@ select:focus{border-color:var(--gold)}
 .bzo.wr{opacity:.5;text-decoration:line-through}
 .bzo .nm{flex:1;font-weight:600;font-size:17px;min-width:0}.bzo .dt{font-size:12.5px;color:var(--muted);text-align:right}
 .qtabs{display:flex;gap:4px}.qtabs button{flex:1;min-width:0;padding:5px 0 4px;border-radius:8px;background:var(--bg2);color:var(--muted);border:0;box-shadow:none;display:flex;flex-direction:column;align-items:center;gap:0;font-weight:400}.qtabs button span{display:flex;line-height:1}.qtabs button svg{display:block}.qtabs button small{font-size:10px;line-height:1.2}.qtabs button.on{background:var(--gold);color:#1a1500;font-weight:600}
+.qzr{margin-top:8px}.qzr .bzo{margin:0}.qzc{padding:6px 12px;font-size:16px}.qzc.ok{color:#7ddf94}.qzc.no{color:#ff8a98}.qzimg{display:block;max-width:100%;border-radius:10px;margin:6px 0;background:#fff}.qzj{display:flex;gap:8px;padding:4px 12px}.qzj button{flex:1;min-height:40px}.qzj button.on{border-color:#4caf50;background:#17402a}.qzj button.on.bad{border-color:var(--danger);background:#40171f}
 .bzst{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}.bzst small{font-size:12px;font-weight:400;color:var(--muted)}.bzst.open{border-color:#4caf50}.bzst.shut{border-color:#e84a5f}
 .hdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:#4a5090}.hdot.on{background:#4caf50}.hdot.me{background:#c9a227}
 </style>
@@ -906,6 +924,8 @@ function qzQuestionCard(q, i, n) {
     <div class="mlab" style="margin-top:14px">Lösung</div><div>${sol}</div></div>`;
 }
 function qzLive() {
+  const zq = getQuiz(QZ.id), cq = zq && zq.questions[Math.min(QZ.d.idx, zq.questions.length - 1)];
+  if (cq && cq.input !== 'oral') return qzAnswers(zq, cq);
   const v = BZ.view, open = v && v.round.open, anyAns = v && v.buzzes.some(b => b.answering);
   if (!BZ.code) return `<div class="card"><p style="margin-top:0">Für den Buzzer brauchst du einen Raum. Ohne Raum kannst du mündlich weiterspielen und Punkte von Hand vergeben.</p><button class="sec" style="width:100%" onclick="bzCreate()">🔔 Raum öffnen</button></div>`;
   const rk = qzRank();
@@ -940,7 +960,7 @@ function viewQuizRun(id) {
     const ids = qzIds().map(id => ({ id, name: qzName(id) })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
     const more = sortedPlayers().filter(p => !ids.some(x => x.id === p.id));
     body = `<div class="muted" style="margin:0 0 8px">Namen antippen gibt +1. Mit − und + korrigierst du.</div>
-    ${ids.length ? ids.map(x => `<div class="mrow" style="gap:8px;padding:8px 12px"><button class="sec" style="flex:1;text-align:left;min-height:46px" onclick="qzAdd('${x.id}',1)">${ava(x.id)} ${esc(x.name)}</button><button class="sec" style="padding:8px 14px" onclick="qzAdd('${x.id}',-1)">−</button><b style="min-width:34px;text-align:center;font-size:20px">${fmtp(qzPts(x.id))}</b><button class="sec" style="padding:8px 14px" onclick="qzAdd('${x.id}',1)">+</button></div>`).join('') : '<div class="empty" style="margin:8px 0">Noch keine Mitspieler. Füge unten Spieler hinzu oder lass sie dem Raum beitreten.</div>'}
+    ${ids.length ? ids.map(x => `<div class="mrow" style="gap:8px;padding:8px 12px"><button class="sec" style="flex:1;text-align:left;min-height:46px" onclick="qzAdd('${x.id}',1)">${ava(x.id)} ${esc(x.name)}${getQuiz(QZ.id).account.on ? `<small style="display:block;color:var(--muted)">Konto ${fmtp(qzKonto(x.id))}${qzKonto(x.id) <= 0 ? ' · ausgeschieden' : ''}</small>` : ''}</button><button class="sec" style="padding:8px 14px" onclick="qzAdd('${x.id}',-1)">−</button><b style="min-width:34px;text-align:center;font-size:20px">${fmtp(qzPts(x.id))}</b><button class="sec" style="padding:8px 14px" onclick="qzAdd('${x.id}',1)">+</button></div>`).join('') : '<div class="empty" style="margin:8px 0">Noch keine Mitspieler. Füge unten Spieler hinzu oder lass sie dem Raum beitreten.</div>'}
     ${more.length ? `<div class="mlab">Spieler hinzufügen</div><div class="qchips">${more.map(p => `<button class="qchip" onclick="qzExtra('${p.id}')">${ava(p.id)}${esc(dispName(p))}</button>`).join('')}</div>` : ''}`;
   } else if (d.tab === 'time') body = `<div class="card"><p style="margin-top:0">Timer und Stoppuhr öffnen sich als eigene Seite. Danach kommst du hierher zurück.</p><div class="tbtn sm"><button onclick="qzTool('timer')">⏱ Timer</button><button class="sec" onclick="qzTool('stoppuhr')">⏲ Stoppuhr</button></div></div>`;
   else if (d.tab === 'fr') body = z.questions.map((q, k) => `<a class="mrow" href="#" onclick="qzGo(${k});return false" style="${k === d.idx && !d.done ? 'border-color:var(--gold)' : ''}"><span class="mic">${k + 1}</span><span class="g"><b>${esc(q.text.trim() || 'Ohne Text')}</b><span class="ms">${QTYPE_LBL[q.type]}</span></span><span class="ar">›</span></a>`).join('');
@@ -949,7 +969,7 @@ function viewQuizRun(id) {
 /* --- Aktionen --- */
 function qzTab(k) { QZ.d.tab = k; qzSave(); rr(); }
 function qzGo(i) { QZ.d.idx = i; QZ.d.done = false; QZ.d.tab = 'ueber'; qzSave(); qzReset(); rr(); }
-function qzReset() { if (BZ.ws) { bzSend({ t: 'reset' }); bzSend({ t: 'lock' }); } }
+function qzReset() { if (BZ.ws) { bzSend({ t: 'reset' }); bzSend({ t: 'lock' }); if (QZ.d.sent) bzSend({ t: 'qclear' }); } QZ.d.sent = null; QZ.d.rev = null; }
 function qzNext() { const z = getQuiz(QZ.id); if (QZ.d.idx >= z.questions.length - 1) { QZ.d.done = true; qzSave(); qzReset(); rr(); window.scrollTo(0, 0); return; } QZ.d.idx++; qzSave(); qzReset(); rr(); window.scrollTo(0, 0); }
 function qzPrev() { if (QZ.d.idx > 0) { QZ.d.idx--; qzSave(); qzReset(); rr(); window.scrollTo(0, 0); } }
 function qzBack() { QZ.d.done = false; qzSave(); rr(); }
@@ -964,6 +984,80 @@ function qzRight() {
   toast('+1 für ' + qzName(a.id)); rr();
 }
 function qzTool(k) { QZ.from = true; location.hash = '#/w/' + k; }
+
+
+/* ---- Antworten am Handy: Spielleiter ---- */
+const INPUT_LBL = { tap: 'antippen', type: 'tippen', hand: 'handschriftlich', dial: 'mit dem Stellrad' };
+const qzKonto = id => (QZ.d.konto && QZ.d.konto[id] !== undefined) ? QZ.d.konto[id] : (getQuiz(QZ.id).account.start || 0);
+const awOf = (qid, id) => ((QZ.d.aw || {})[qid] || {})[id] || 0;
+function qzSetAw(qid, id, val) {
+  QZ.d.aw = QZ.d.aw || {}; const m = QZ.d.aw[qid] = QZ.d.aw[qid] || {}, old = m[id] || 0;
+  if (old === val) return;
+  QZ.d.scores[id] = Math.round((qzPts(id) + (val === 1 ? 1 : 0) - (old === 1 ? 1 : 0)) * 10) / 10;
+  if (val) m[id] = val; else delete m[id];
+}
+function qzSend() {
+  const z = getQuiz(QZ.id), q = z.questions[QZ.d.idx];
+  const o = { input: q.input, text: q.text };
+  if (q.type === 'mc') o.options = q.options;
+  if (q.type === 'est') o.est = { min: numv(q.est.min), max: numv(q.est.max), unit: q.est.unit };
+  if (!bzSend({ t: 'ask', q: o })) { toast('Keine Verbindung'); return; }
+  QZ.d.sent = q.id; QZ.d.rev = null; qzSave();
+}
+function qzQLock() { const open = BZ.view && BZ.view.q && BZ.view.q.open; bzSend({ t: open ? 'qlock' : 'qopen' }); }
+function qzReveal(qid) { QZ.d.rev = QZ.d.rev === qid ? null : qid; qzSave(); rr(); }
+function qzJudge(qid, id, val) { const cur = awOf(qid, id); qzSetAw(qid, id, cur === val ? 0 : val); qzSave(); rr(); }
+function qzTapAward() {
+  const z = getQuiz(QZ.id), q = z.questions[QZ.d.idx], V = BZ.view && BZ.view.q; if (!V) return;
+  V.answers.forEach(a => { if (!awOf(q.id, a.id)) qzSetAw(q.id, a.id, a.v === q.correct ? 1 : -1); });
+  qzSave(); rr();
+}
+function qzDialDev(q, v) { return Math.abs(v - numv(q.est.value)); }
+function qzDialApply() {
+  const z = getQuiz(QZ.id), q = z.questions[QZ.d.idx], V = BZ.view && BZ.view.q, A = z.account; if (!V || !V.answers.length) return;
+  QZ.d.applied = QZ.d.applied || {}; QZ.d.pen = QZ.d.pen || {}; QZ.d.konto = QZ.d.konto || {};
+  if (QZ.d.applied[q.id]) return;
+  const pen = QZ.d.pen[q.id] = {};
+  if (A.on) V.answers.forEach(a => { const p = estPenalty(q, a.v, A); pen[a.id] = p; QZ.d.konto[a.id] = Math.round((qzKonto(a.id) - p) * 10) / 10; });
+  else { const best = Math.min(...V.answers.map(a => qzDialDev(q, a.v))); V.answers.forEach(a => { if (qzDialDev(q, a.v) === best) { pen[a.id] = 0; qzSetAw(q.id, a.id, 1); } }); }
+  QZ.d.applied[q.id] = true; qzSave(); rr();
+}
+function qzDialUndo() {
+  const z = getQuiz(QZ.id), q = z.questions[QZ.d.idx], A = z.account;
+  if (!(QZ.d.applied || {})[q.id]) return;
+  const pen = (QZ.d.pen || {})[q.id] || {};
+  Object.keys(pen).forEach(id => { if (A.on) QZ.d.konto[id] = Math.round((qzKonto(id) + pen[id]) * 10) / 10; else qzSetAw(q.id, id, 0); });
+  delete QZ.d.applied[q.id]; delete QZ.d.pen[q.id]; qzSave(); rr();
+}
+function qzAnswers(z, q) {
+  const v = BZ.view, A = z.account;
+  if (!BZ.code) return `<div class="card"><p style="margin-top:0">Für Antworten am Handy brauchst du einen Raum.</p><button class="sec" style="width:100%" onclick="bzCreate()">🔔 Raum öffnen</button></div>`;
+  if (QZ.d.sent !== q.id || !v || !v.q) return `<div class="card"><p style="margin-top:0">Die Spieler antworten am Handy (${INPUT_LBL[q.input]}). Vorher sollten alle dem Raum beigetreten sein.</p><button style="width:100%;min-height:60px" onclick="qzSend()">▶ Frage an Handys senden</button></div>`;
+  const Q = v.q, claimed = v.roster.filter(r => r.taken), got = Q.answers.length, rev = QZ.d.rev === q.id, applied = (QZ.d.applied || {})[q.id];
+  const byId = Object.fromEntries(Q.answers.map(a => [a.id, a]));
+  const ids = claimed.map(r => r.id); Q.answers.forEach(a => { if (!ids.includes(a.id)) ids.push(a.id); });
+  const u = q.type === 'est' && q.est.unit ? ' ' + esc(q.est.unit) : '';
+  let rows = ids.map(id => ({ id, name: qzName(id), a: byId[id] }));
+  if (q.input === 'dial' && rev) rows.sort((x, y) => (x.a ? qzDialDev(q, x.a.v) : 1e18) - (y.a ? qzDialDev(q, y.a.v) : 1e18));
+  const judge = (id, aw) => `<span class="qzj"><button class="sec${aw === 1 ? ' on' : ''}" onclick="qzJudge('${q.id}','${id}',1)">✓</button><button class="sec${aw === -1 ? ' on bad' : ''}" onclick="qzJudge('${q.id}','${id}',-1)">✗</button></span>`;
+  const list = rows.map(r => {
+    const a = r.a; let content = '', extra = '';
+    if (rev && a) {
+      if (q.input === 'tap') { const ok = a.v === q.correct; content = `<div class="qzc ${ok ? 'ok' : 'no'}"><b>${'ABCDEF'[a.v]}</b>  ${esc(q.options[a.v] || '')}  ${ok ? '✓' : '✗'}</div>`; }
+      if (q.input === 'type') content = `<div class="qzc">${esc(a.v)}</div>${judge(r.id, awOf(q.id, r.id))}`;
+      if (q.input === 'hand') content = `${a.v ? `<img src="${a.v}" alt="" class="qzimg">` : ''}${judge(r.id, awOf(q.id, r.id))}`;
+      if (q.input === 'dial') { const dev = qzDialDev(q, a.v), p = A.on ? ((QZ.d.pen || {})[q.id] || {})[r.id] ?? estPenalty(q, a.v, A) : null; content = `<div class="qzc"><b>${fmtn(a.v)}${u}</b> · ${fmtn(dev)}${u} daneben${A.on ? ` · Abzug ${fmtn(p)} → Konto ${fmtp(qzKonto(r.id) - (applied ? 0 : p))}` : ''}</div>`; }
+    }
+    return `<div class="qzr"><div class="bzo${a ? ' ans' : ''}"><span class="rk2">${a ? '✓' : '…'}</span><span class="nm">${esc(r.name)}</span><span class="dt">${a ? (rev ? '' : 'geantwortet') : 'noch offen'}${rev && q.input !== 'dial' && awOf(q.id, r.id) === 1 ? '<br>+1' : ''}</span></div>${content}</div>`;
+  }).join('');
+  let act = '';
+  if (rev && q.input === 'tap') act = `<button style="width:100%;margin-top:10px" onclick="qzTapAward()">+1 für jede richtige Antwort</button>`;
+  if (rev && q.input === 'dial') act = applied ? `<button class="sec" style="width:100%;margin-top:10px" onclick="qzDialUndo()">↩ ${A.on ? 'Abzüge' : 'Punkt'} zurücknehmen</button>` : `<button style="width:100%;margin-top:10px" onclick="qzDialApply()">${A.on ? 'Abzüge vom Punktekonto anwenden' : '+1 für die beste Schätzung'}</button>`;
+  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>${got} von ${claimed.length} haben geantwortet</b><span class="muted">${Q.open ? '🟢 offen' : '🔴 gesperrt'}</span></div></div>
+  <div class="tbtn sm" style="margin-top:10px"><button class="sec" onclick="qzQLock()">${Q.open ? '🔒 Antworten sperren' : '🔓 Wieder öffnen'}</button><button class="${rev ? 'sec' : ''}" onclick="qzReveal('${q.id}')">${rev ? 'Verdecken' : '👁 Aufdecken'}</button></div>
+  <div class="mlab">Antworten</div>${list || '<div class="empty" style="margin:8px 0">Noch keine Mitspieler.</div>'}${act}
+  <div class="mlab">Punkte</div><div class="muted">${qzRank().slice(0, 6).map(x => `${esc(x.name)} ${fmtp(x.p)}`).join(' · ') || 'Noch keine Mitspieler.'}</div>`;
+}
 
 
 /* ============ QR-Code ============ */
@@ -1149,7 +1243,7 @@ function pbConnect() {
     let m; try { m = JSON.parse(e.data); } catch (x) { return; }
     if (m.t === 'state') { PB.state = m; pbPaint(); }
     else if (m.t === 'pong') { const c1 = clk(), rtt = c1 - m.c; if (rtt >= 0) { PB.samples.push({ rtt, off: m.s - (m.c + c1) / 2 }); if (PB.samples.length > 12) PB.samples.shift(); const b = PB.samples.reduce((a, x) => (x.rtt < a.rtt ? x : a)); PB.off = b.off; PB.best = b.rtt; } }
-    else if (m.t === 'error') { if (m.e === 'taken') toast('Der Name ist schon vergeben'); else if (m.e === 'exists') toast('Der Name ist schon in der Liste'); }
+    else if (m.t === 'error') { if (m.e === 'taken') toast('Der Name ist schon vergeben'); else if (m.e === 'exists') toast('Der Name ist schon in der Liste'); else if (m.e === 'ans-closed') toast('Die Antworten sind schon geschlossen'); else if (m.e === 'ans-dup') toast('Du hast schon geantwortet'); else if (m.e === 'ans-bad') toast('Die Antwort konnte nicht gesendet werden'); }
   };
   ws.onclose = () => {
     if (PB.ws === ws) PB.ws = null;
@@ -1186,6 +1280,8 @@ function pbPaint() {
     return;
   }
   const me = s.roster.find(r => r.id === s.me) || { name: '' }, R = s.round, m = R.mine;
+  if (s.q) { pbPaintQ(el, s, me, dot); return; }
+  PB.qkey = '';
   let cls = 'wait', big = '', sub = '';
   const others = R.answering.filter(n => n !== me.name);
   if (m) { cls = m.answering ? 'go' : 'late'; big = m.rank; sub = m.answering ? 'Du bist dran' : others.length ? `${others.join(', ')} ist dran` : ''; }
@@ -1194,6 +1290,63 @@ function pbPaint() {
   else { cls = 'wait'; big = 'Gesperrt'; sub = 'Warte auf die nächste Runde'; }
   el.innerHTML = `<div class="bztop"><span class="bzme">${me.emoji ? `<span class="ava" style="background:${me.color || '#3a4285'}">${me.emoji}</span>` : ''}${esc(me.name)}${dot}</span><button class="bzchg" onclick="pbRelease()">Name ändern</button></div>
   <div class="bzmid"><button class="bzbtn ${cls}" onpointerdown="pbPress(event)">${esc(String(big))}</button><div class="bzs">${esc(sub)}</div></div>`;
+}
+
+/* ---- Spieler-Handy: Fragen beantworten ---- */
+const dec = st => (st >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(st))));
+const fnum = (n, st) => Number(n).toFixed(dec(st)).replace('.', ',');
+function pbAns(v) { if (!pbSend({ t: 'answer', v })) toast('Keine Verbindung'); }
+function pbDialUpd(d) {
+  const r = $('bzR'), Q = PB.state && PB.state.q; if (!r || !Q) return;
+  if (d) r.value = Math.min(Q.est.max, Math.max(Q.est.min, Number(r.value) + d * Q.est.step));
+  $('bzV').textContent = fnum(r.value, Q.est.step) + (Q.est.unit ? ' ' + Q.est.unit : '');
+}
+function pbText() { const v = ($('bzT').value || '').trim(); if (!v) { toast('Bitte etwas eintragen'); return; } pbAns(v); }
+const HC = { w: 320, h: 200, drawn: false };
+function pbHandInit() {
+  const c = $('bzC'); if (!c) return; const x = c.getContext('2d'); HC.drawn = false;
+  x.fillStyle = '#fff'; x.fillRect(0, 0, HC.w, HC.h); x.strokeStyle = '#111'; x.lineWidth = 3.2; x.lineCap = 'round'; x.lineJoin = 'round';
+  let on = false, lx = 0, ly = 0;
+  const pt = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * HC.w / r.width, (e.clientY - r.top) * HC.h / r.height]; };
+  c.onpointerdown = e => { e.preventDefault(); on = true; [lx, ly] = pt(e); try { c.setPointerCapture(e.pointerId); } catch (x) {} x.beginPath(); x.arc(lx, ly, 1.6, 0, 7); x.fillStyle = '#111'; x.fill(); HC.drawn = true; };
+  c.onpointermove = e => { if (!on) return; e.preventDefault(); const [px, py] = pt(e); x.beginPath(); x.moveTo(lx, ly); x.lineTo(px, py); x.stroke(); lx = px; ly = py; };
+  const end = () => { on = false; }; c.onpointerup = end; c.onpointercancel = end;
+}
+function pbHandClear() { pbHandInit(); }
+function pbHandSend() {
+  const c = $('bzC'); if (!c || !HC.drawn) { toast('Zeichne zuerst etwas'); return; }
+  let q = 0.6, d = c.toDataURL('image/jpeg', q);
+  while (d.length > 13500 && q > 0.2) { q -= 0.1; d = c.toDataURL('image/jpeg', q); }
+  if (d.length > 13500) { toast('Die Zeichnung ist zu groß, bitte einfacher'); return; }
+  pbAns(d);
+}
+function pbPaintQ(el, s, me, dot) {
+  const Q = s.q, key = Q.no + '|' + Q.open + '|' + Q.mine;
+  if (PB.qkey === key && $('bzq')) return;
+  PB.qkey = key;
+  let body = '';
+  if (Q.mine) {
+    let mine = '';
+    if (Q.input === 'tap' && Q.v != null) mine = `${'ABCDEF'[Q.v]}  ${esc(Q.options[Q.v])}`;
+    if (Q.input === 'type') mine = esc(Q.v || '');
+    if (Q.input === 'dial' && Q.v != null) mine = esc(fnum(Q.v, Q.est.step) + (Q.est.unit ? ' ' + Q.est.unit : ''));
+    if (Q.input === 'hand') mine = 'Deine Zeichnung';
+    body = `<div class="bzdone"><div class="bzck">✓</div><div>Antwort abgeschickt</div>${mine ? `<div class="bzmine">${mine}</div>` : ''}<div class="muted">Warte auf die Auflösung.</div></div>`;
+  } else if (!Q.open) body = `<div class="bzdone"><div class="bzck" style="color:var(--danger)">✗</div><div>Die Antworten sind geschlossen.</div></div>`;
+  else if (Q.input === 'tap') body = `<div class="bzopts">${Q.options.map((o, i) => o ? `<button class="bzopt" onclick="pbAns(${i})"><b>${'ABCDEF'[i]}</b><span>${esc(o)}</span></button>` : '').join('')}</div>`;
+  else if (Q.input === 'type') body = `<input id="bzT" class="bzin" placeholder="Deine Antwort" maxlength="200" enterkeyhint="send" autocomplete="off" onkeydown="if(event.key==='Enter')pbText()"><button class="bzsend" onclick="pbText()">Senden</button>`;
+  else if (Q.input === 'dial') {
+    const E = Q.est, mid = Math.round((E.min + E.max) / 2 / E.step) * E.step;
+    body = `<div class="bzval" id="bzV"></div>
+    <input id="bzR" type="range" class="bzrange" min="${E.min}" max="${E.max}" step="${E.step}" value="${mid}" oninput="pbDialUpd(0)">
+    <div class="bzmm"><span>${esc(fnum(E.min, E.step))}</span><span>${esc(fnum(E.max, E.step))}${E.unit ? ' ' + esc(E.unit) : ''}</span></div>
+    <div class="bzfine"><button class="sec" onclick="pbDialUpd(-1)">−</button><button class="sec" onclick="pbDialUpd(1)">+</button></div>
+    <button class="bzsend" onclick="pbAns(Number($('bzR').value))">Einloggen</button>`;
+  } else if (Q.input === 'hand') body = `<canvas id="bzC" class="bzcan" width="${HC.w}" height="${HC.h}"></canvas><div class="bzfine"><button class="sec" onclick="pbHandClear()">Löschen</button><button class="bzsend" style="margin:0" onclick="pbHandSend()">Senden</button></div>`;
+  el.innerHTML = `<div class="bztop"><span class="bzme">${me.emoji ? `<span class="ava" style="background:${me.color || '#3a4285'}">${me.emoji}</span>` : ''}${esc(me.name)}${dot}</span><button class="bzchg" onclick="pbRelease()">Name ändern</button></div>
+  <div class="bzq" id="bzq"><div class="bzqt">${esc(Q.text)}</div>${body}</div>`;
+  if (!Q.mine && Q.open && Q.input === 'dial') pbDialUpd(0);
+  if (!Q.mine && Q.open && Q.input === 'hand') pbHandInit();
 }
 
 /* ============ Werkzeuge ============ */
