@@ -45,8 +45,10 @@ export class Room extends DurableObject {
     super(ctx, env);
     this.st = null;
     this.hand = {};
+    this.simg = null;
     ctx.blockConcurrencyWhile(async () => {
       this.st = (await ctx.storage.get("st")) || null;
+      this.simg = (await ctx.storage.get("si")) || null;
       const h = await ctx.storage.list({ prefix: "h:" });
       h.forEach((v, k) => { this.hand[k.slice(2)] = v; });
     });
@@ -101,11 +103,19 @@ export class Room extends DurableObject {
       const a = this.att(ws);
       if (a.role === "host") this.send(ws, L.viewForHost(this.st, online, this.hand));
       else if (a.role === "player") this.send(ws, L.viewForPlayer(this.st, a.dev));
+      else if (a.role === "stage") this.send(ws, this.stageMsg(false));
     });
   }
 
+  stageMsg(withImg) {
+    const tm = this.st.stimer ? { dur: this.st.stimer.dur, el: Date.now() - this.st.stimer.start } : null;
+    const o = { t: "stage", s: this.st.stage || null, tm };
+    if (withImg) o.img = this.simg || null;
+    return o;
+  }
+
   async webSocketMessage(ws, raw) {
-    if (typeof raw !== "string" || raw.length > 20000 || !this.st) return;
+    if (typeof raw !== "string" || raw.length > 220000 || !this.st) return;
     let m; try { m = JSON.parse(raw); } catch (e) { return; }
     const now = Date.now();
     if (m.t === "ping") { this.send(ws, { t: "pong", c: m.c, s: now }); return; }
@@ -115,6 +125,10 @@ export class Room extends DurableObject {
       if (m.role === "host") {
         if (m.key !== this.st.hostKey) { this.send(ws, { t: "error", e: "key" }); return; }
         a = { role: "host" };
+      } else if (m.role === "stage") {
+        ws.serializeAttachment({ role: "stage" });
+        this.send(ws, this.stageMsg(true));
+        return;
       } else {
         const dev = String(m.dev || "").slice(0, 40); if (!dev) return;
         a = { role: "player", dev };
@@ -123,7 +137,8 @@ export class Room extends DurableObject {
       this.broadcast();
       return;
     }
-    if (!a.role) return;
+    if (!a.role || a.role === "stage") return;
+    if (a.role !== "host" && raw.length > 20000) return;
 
     let changed = false;
     if (a.role === "host") {
@@ -136,6 +151,21 @@ export class Room extends DurableObject {
         case "wrong": L.wrongNext(this.st); changed = true; break;
         case "markWrong": L.markWrong(this.st, Array.isArray(m.ids) ? m.ids.map(String) : []); changed = true; break;
         case "ask": { const ok = L.askQuestion(this.st, m.q, now); if (ok) { await this.clearHand(); changed = true; } else this.send(ws, { t: "error", e: "badq" }); break; }
+        case "stage": { if (m.s && typeof m.s === "object" && JSON.stringify(m.s).length < 30000) { this.st.stage = m.s; changed = true; } break; }
+        case "stageimg": {
+          const v = m.v;
+          if (v === null || (typeof v === "string" && v.startsWith("data:image/jpeg;base64,") && v.length <= 150000)) {
+            this.simg = v;
+            if (v) await this.ctx.storage.put("si", v); else await this.ctx.storage.delete("si");
+            this.getSockets().forEach((s2) => { if (this.att(s2).role === "stage") this.send(s2, { t: "stage", s: this.st.stage || null, tm: null, img: v, keep: true }); });
+          }
+          break;
+        }
+        case "stimer": {
+          if (m.stop) { this.st.stimer = null; changed = true; }
+          else { const d = Number(m.dur); if (isFinite(d) && d > 0 && d <= 3600) { this.st.stimer = { dur: d, start: now }; changed = true; } }
+          break;
+        }
         case "qlock": L.lockQuestion(this.st); changed = true; break;
         case "qopen": L.openQuestion(this.st); changed = true; break;
         case "qclear": L.clearQuestion(this.st); await this.clearHand(); changed = true; break;
