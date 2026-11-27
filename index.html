@@ -335,6 +335,35 @@ select:focus{border-color:var(--gold)}
 .bzo .nm{flex:1;font-weight:600;font-size:17px;min-width:0}.bzo .dt{font-size:12.5px;color:var(--muted);text-align:right}
 .qtabs{display:flex;gap:4px}.qtabs button{flex:1;min-width:0;padding:5px 0 4px;border-radius:8px;background:var(--bg2);color:var(--muted);border:0;box-shadow:none;display:flex;flex-direction:column;align-items:center;gap:0;font-weight:400}.qtabs button span{display:flex;line-height:1}.qtabs button svg{display:block}.qtabs button small{font-size:10px;line-height:1.2}.qtabs button.on{background:var(--gold);color:#1a1500;font-weight:600}
 .qzr{margin-top:8px}.qzr .bzo{margin:0}.qzc{padding:6px 12px;font-size:16px}.qzc.ok{color:#7ddf94}.qzc.no{color:#ff8a98}.qzimg{display:block;max-width:100%;border-radius:10px;margin:6px 0;background:#fff}.qzj{display:flex;gap:8px;padding:4px 12px}.qzj button{flex:1;min-height:40px}.qzj button.on{border-color:#4caf50;background:#17402a}.qzj button.on.bad{border-color:var(--danger);background:#40171f}
+.qtabs button.on svg{stroke:#1a1500}
+button.shown{border-color:var(--gold)!important;color:var(--gold)}
+.stcells{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.stc{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 8px;border-radius:12px;background:var(--bg2);border:1px dashed var(--line);color:var(--muted);font-weight:500;opacity:.6}
+.stc small{font-size:11px;font-weight:400}.stc.on{opacity:1;border-style:solid;border-color:#4a5199;color:var(--text)}.stc.sel{border-color:var(--gold);background:#2a2748;opacity:1}
+#stg{position:fixed;inset:0;z-index:200;background:#0b0d24;color:#e8e9f7;display:flex;flex-direction:column;padding:2vmin;gap:2vmin;overflow:hidden}
+.stgwait{margin:auto;text-align:center;font-size:5vmin}.stgwait small{display:block;font-size:2.6vmin;color:#8b90bd;margin-top:1.5vmin}
+.stgbar{display:flex;justify-content:space-between;font-size:2.6vmin;color:#8b90bd;flex:none}
+.stgmain{flex:1;display:flex;flex-direction:column;gap:2vmin;min-height:0}
+.stgrow{display:grid;gap:2vmin;flex:0 0 36%;min-height:0}.stgrow.full{flex:1}
+.stgrow.n1{grid-template-columns:1fr}.stgrow.n2{grid-template-columns:1fr 1fr}.stgrow.n3{grid-template-columns:1fr 1fr 1fr}
+.stgf{background:#151a3a;border:1px solid #2c3160;border-radius:2.4vmin;padding:2vmin 2.4vmin;overflow:hidden;display:flex;flex-direction:column;gap:1vmin;min-height:0}
+.stgh{font-size:2.2vmin;letter-spacing:.08em;text-transform:uppercase;color:#8b90bd;flex:none}
+.stgo{display:flex;align-items:center;gap:1.6vmin;font-size:3.4vmin;padding:.9vmin 1.4vmin;border-radius:1.4vmin;background:#1d2350}
+.stgo b{min-width:4vmin;height:4vmin;border-radius:50%;background:#2c3160;display:grid;place-items:center;font-size:2.4vmin}
+.stgo.first{background:#16391f;color:#bff0c9;font-size:4.6vmin}.stgo.first b{background:#3d9a4f;color:#fff}
+.stgo.wr{background:#3a1620;color:#ffb3bf;text-decoration:line-through}
+.stgbig{font-size:5vmin;font-weight:700;margin:auto;text-align:center}.stgsm{font-size:2.8vmin;color:#8b90bd;text-align:center}
+.stgtime{font-family:'Archivo Black',system-ui,sans-serif;font-size:11vmin;margin:auto;color:#f6c84c;text-align:center}.stgtime.end{color:#ff6b7d;animation:stgb .6s steps(2) infinite}
+@keyframes stgb{50%{opacity:.25}}
+.stgf.total{grid-column:1/-1}
+.stgq{flex:1;background:#151a3a;border:1px solid #2c3160;border-radius:2.4vmin;padding:2.4vmin 3vmin;display:flex;flex-direction:column;gap:1.8vmin;justify-content:center;align-items:center;text-align:center;overflow:hidden;min-height:0}
+.stgqt{font-size:5.4vmin;font-weight:600;line-height:1.3}
+.stgimg{max-width:100%;max-height:38vmin;object-fit:contain;border-radius:1.6vmin;flex:0 1 auto;min-height:0}
+.stgopts{display:grid;grid-template-columns:1fr 1fr;gap:1.4vmin;width:100%}
+.stgop{display:flex;align-items:center;gap:1.6vmin;font-size:3.8vmin;padding:1.4vmin 2vmin;border-radius:1.6vmin;background:#1d2350;text-align:left}
+.stgop b{min-width:5vmin;height:5vmin;border-radius:50%;background:#2c3160;display:grid;place-items:center;font-size:3vmin}
+.stgop.ok{background:#16391f;color:#bff0c9;box-shadow:0 0 0 .5vmin #3d9a4f}.stgop.ok b{background:#3d9a4f;color:#fff}
+.stgsol{font-size:6vmin;font-weight:700;color:#f6c84c}
 .bzst{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}.bzst small{font-size:12px;font-weight:400;color:var(--muted)}.bzst.open{border-color:#4caf50}.bzst.shut{border-color:#e84a5f}
 .hdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:#4a5090}.hdot.on{background:#4caf50}.hdot.me{background:#c9a227}
 </style>
@@ -577,6 +606,7 @@ function route() {
   if (h[0] === 'quiz') return { o: null, page: 'quiz', qz: h[1], qq: h[2] === 'q' ? h[3] : null };
   if (['spieler', 'olympiaden', 'spontan', 'quiz', 'werkzeuge', 'sicherung'].includes(h[0])) return { o: null, page: h[0] };
   if (h[0] === 'w' && h[1]) return { o: null, page: 'w', sub: h[1] };
+  if (h[0] === 'stage' && h[1]) return { o: null, page: 'stage', code: h[1].toUpperCase(), srv: decodeURIComponent(h[2] || '') };
   if (h[0] === 'buzz' && h[1]) return { o: null, page: 'buzz', code: h[1].toUpperCase(), srv: decodeURIComponent(h[2] || '') };
   return { o: null };
 }
@@ -586,6 +616,7 @@ function render() {
   const r = route();
   if (r.page !== 'w' && r.page !== 'qrun') QZ.from = false;
   if (r.page !== 'buzz' && typeof PB !== 'undefined' && PB.ws) pbStop();
+  if (r.page !== 'stage' && typeof STG !== 'undefined' && !STG.stopped) stgStop();
   $('app').innerHTML = r.o ? viewOlympiad(r.o, r.tab, r.sub) : viewPage(r);
   if (r.o && r.tab === 'run') AudioKit.load();
 }
@@ -601,6 +632,7 @@ function viewPage(r) {
     case 'sicherung': return viewSicherung();
     case 'w': return viewTool(r.sub);
     case 'buzz': return viewBuzz(r.code, r.srv);
+    case 'stage': return viewStage(r.code, r.srv);
     default: return viewHome();
   }
 }
@@ -892,7 +924,8 @@ const QTABS = [
   ['buzz', `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6"/><path d="M9 17v1a3 3 0 0 0 6 0v-1"/></svg>`, 'Buzzer'],
   ['pts', `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 6h9"/><path d="M11 12h9"/><path d="M12 18h8"/><path d="M4 16a2 2 0 1 1 4 0c0 .591 -.5 1 -1 1.5l-3 2.5h4"/><path d="M6 10v-6l-2 2"/></svg>`, 'Punkte'],
   ['time', `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 7v5l3 3"/></svg>`, 'Timer'],
-  ['fr', `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 17v.01"/><path d="M12 13.5a1.5 1.5 0 0 1 1 -1.5a2.6 2.6 0 1 0 -3 -4"/></svg>`, 'Fragen']
+  ['fr', `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 17v.01"/><path d="M12 13.5a1.5 1.5 0 0 1 1 -1.5a2.6 2.6 0 1 0 -3 -4"/></svg>`, 'Fragen'],
+  ['stage', `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9z"/><path d="M16 3l-4 4l-4 -4"/></svg>`, 'Bühne']
 ];
 function qzLoad(id) {
   let all = {}; try { all = JSON.parse(lsGet(QRUN_KEY, '{}')) || {}; } catch (e) {}
@@ -940,7 +973,7 @@ function viewQuizRun(id) {
   if (!z) return `${mhead('Quiz')}<div class="empty">Dieses Quiz gibt es nicht mehr.</div>`;
   if (QZ.id !== id) qzLoad(id);
   const d = QZ.d, n = z.questions.length;
-  setTimeout(() => { if (BZ.code && !BZ.ws && BZ.status !== 'connecting') bzConnect(); else if (BZ.ws) bzSendRoster(); }, 0);
+  setTimeout(() => { if (BZ.code && !BZ.ws && BZ.status !== 'connecting') bzConnect(); else if (BZ.ws) { bzSendRoster(); qzStageSync(); } }, 0);
   const tabs = `<div class="qtabs">${QTABS.map(([k, ic, l]) => `<button class="${d.tab === k ? 'on' : ''}" onclick="qzTab('${k}')"><span>${ic}</span><small>${l}</small></button>`).join('')}</div>`;
   const head = `<a class="back" href="#/quiz/${z.id}">‹ ${esc(z.name)}</a>`;
   let body = '';
@@ -952,7 +985,8 @@ function viewQuizRun(id) {
       <div class="tbtn sm" style="margin-top:12px"><button class="sec" onclick="qzBack()">‹ Zur letzten Frage</button><button class="sec" onclick="qzRestart()">Neu starten</button></div>`;
     } else {
       const i = Math.min(d.idx, n - 1), q = z.questions[i];
-      body = `${qzQuestionCard(q, i, n)}<div id="qrLive">${qzLive()}</div>
+      const g = d.stg || {};
+      body = `${qzQuestionCard(q, i, n)}${BZ.code ? `<div class="tbtn sm" style="margin:10px 0 0"><button class="sec${g.fr ? ' shown' : ''}" onclick="qzStg('fr')">${TVICO} Frage ${g.fr ? 'verbergen' : 'zeigen'}</button><button class="sec${g.sol ? ' shown' : ''}" onclick="qzStg('sol')">${TVICO} Lösung ${g.sol ? 'verbergen' : 'zeigen'}</button></div>` : ''}<div id="qrLive">${qzLive()}</div>
       <div class="tbtn sm" style="margin-top:14px"><button class="sec" ${i === 0 ? 'disabled' : ''} onclick="qzPrev()">‹ Zurück</button><button onclick="qzNext()">${i === n - 1 ? 'Quiz beenden' : 'Weiter ›'}</button></div>`;
     }
   } else if (d.tab === 'buzz') body = toolBuzzer(true);
@@ -963,13 +997,14 @@ function viewQuizRun(id) {
     ${ids.length ? ids.map(x => `<div class="mrow" style="gap:8px;padding:8px 12px"><button class="sec" style="flex:1;text-align:left;min-height:46px" onclick="qzAdd('${x.id}',1)">${ava(x.id)} ${esc(x.name)}${getQuiz(QZ.id).account.on ? `<small style="display:block;color:var(--muted)">Konto ${fmtp(qzKonto(x.id))}${qzKonto(x.id) <= 0 ? ' · ausgeschieden' : ''}</small>` : ''}</button><button class="sec" style="padding:8px 14px" onclick="qzAdd('${x.id}',-1)">−</button><b style="min-width:34px;text-align:center;font-size:20px">${fmtp(qzPts(x.id))}</b><button class="sec" style="padding:8px 14px" onclick="qzAdd('${x.id}',1)">+</button></div>`).join('') : '<div class="empty" style="margin:8px 0">Noch keine Mitspieler. Füge unten Spieler hinzu oder lass sie dem Raum beitreten.</div>'}
     ${more.length ? `<div class="mlab">Spieler hinzufügen</div><div class="qchips">${more.map(p => `<button class="qchip" onclick="qzExtra('${p.id}')">${ava(p.id)}${esc(dispName(p))}</button>`).join('')}</div>` : ''}`;
   } else if (d.tab === 'time') body = `<div class="card"><p style="margin-top:0">Timer und Stoppuhr öffnen sich als eigene Seite. Danach kommst du hierher zurück.</p><div class="tbtn sm"><button onclick="qzTool('timer')">⏱ Timer</button><button class="sec" onclick="qzTool('stoppuhr')">⏲ Stoppuhr</button></div></div>`;
+  else if (d.tab === 'stage') body = viewStageTab(z);
   else if (d.tab === 'fr') body = z.questions.map((q, k) => `<a class="mrow" href="#" onclick="qzGo(${k});return false" style="${k === d.idx && !d.done ? 'border-color:var(--gold)' : ''}"><span class="mic">${k + 1}</span><span class="g"><b>${esc(q.text.trim() || 'Ohne Text')}</b><span class="ms">${QTYPE_LBL[q.type]}</span></span><span class="ar">›</span></a>`).join('');
   return `${head}<div style="position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0">${tabs}</div>${body}`;
 }
 /* --- Aktionen --- */
 function qzTab(k) { QZ.d.tab = k; qzSave(); rr(); }
 function qzGo(i) { QZ.d.idx = i; QZ.d.done = false; QZ.d.tab = 'ueber'; qzSave(); qzReset(); rr(); }
-function qzReset() { if (BZ.ws) { bzSend({ t: 'reset' }); bzSend({ t: 'lock' }); if (QZ.d.sent) bzSend({ t: 'qclear' }); } QZ.d.sent = null; QZ.d.rev = null; }
+function qzReset() { if (BZ.ws) { bzSend({ t: 'reset' }); bzSend({ t: 'lock' }); if (QZ.d.sent) bzSend({ t: 'qclear' }); } QZ.d.sent = null; QZ.d.rev = null; QZ.d.stg = { fr: false, sol: false }; }
 function qzNext() { const z = getQuiz(QZ.id); if (QZ.d.idx >= z.questions.length - 1) { QZ.d.done = true; qzSave(); qzReset(); rr(); window.scrollTo(0, 0); return; } QZ.d.idx++; qzSave(); qzReset(); rr(); window.scrollTo(0, 0); }
 function qzPrev() { if (QZ.d.idx > 0) { QZ.d.idx--; qzSave(); qzReset(); rr(); window.scrollTo(0, 0); } }
 function qzBack() { QZ.d.done = false; qzSave(); rr(); }
@@ -1057,6 +1092,169 @@ function qzAnswers(z, q) {
   <div class="tbtn sm" style="margin-top:10px"><button class="sec" onclick="qzQLock()">${Q.open ? '🔒 Antworten sperren' : '🔓 Wieder öffnen'}</button><button class="${rev ? 'sec' : ''}" onclick="qzReveal('${q.id}')">${rev ? 'Verdecken' : '👁 Aufdecken'}</button></div>
   <div class="mlab">Antworten</div>${list || '<div class="empty" style="margin:8px 0">Noch keine Mitspieler.</div>'}${act}
   <div class="mlab">Punkte</div><div class="muted">${qzRank().slice(0, 6).map(x => `${esc(x.name)} ${fmtp(x.p)}`).join(' · ') || 'Noch keine Mitspieler.'}</div>`;
+}
+
+
+/* ============ Bühne (iPad / Fernseher) ============ */
+const TVICO = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-9z"/><path d="M16 3l-4 4l-4 -4"/></svg>`;
+const STG_DEF = { n: 3, order: ['buzzer', 'timer', 'points', 'total'], q: true };
+const STG_NAMES = { buzzer: 'Buzzer', timer: 'Timer', points: 'Punkte', total: 'Gesamtstand' };
+const stageLink = () => bzLink().replace('#/buzz/', '#/stage/');
+function stl() {
+  db.stageLayouts = db.stageLayouts || {}; const k = QZ.d.leader || '_';
+  if (!db.stageLayouts[k]) db.stageLayouts[k] = JSON.parse(JSON.stringify(STG_DEF));
+  return db.stageLayouts[k];
+}
+/* --- Spielleiter: Reiter Bühne --- */
+function viewStageTab(z) {
+  const L = stl(), d = QZ.d;
+  if (!BZ.code) return `<div class="card"><p style="margin-top:0">Für die Bühne brauchst du einen Raum. Das iPad tritt dem Raum wie ein Handy bei, zeigt aber nur, was du freigibst.</p><button class="sec" style="width:100%" onclick="bzCreate()">🔔 Raum öffnen</button></div>`;
+  const players = sortedPlayers();
+  const cells = L.order.map((f, i) => `<button class="stc${i < L.n ? ' on' : ''}${d.stsel === i ? ' sel' : ''}" onclick="stSwap(${i})"><small>${i < L.n ? (f === 'total' && L.q ? 'nur ohne Frage' : 'sichtbar') : 'versteckt'}</small>${STG_NAMES[f]}</button>`).join('');
+  return `<div class="card">
+    <b>Bühne öffnen</b>
+    <p class="muted" style="margin:6px 0 10px">Öffne diesen Link auf dem iPad im Querformat, oder scanne den Code. Dort erscheint nur, was du freigibst.</p>
+    <div class="row wrap"><button class="sec" onclick="stToggleQr()">${d.stqr ? 'QR-Code ausblenden' : 'QR-Code anzeigen'}</button><button class="sec" onclick="stCopy()">Link kopieren</button></div>
+    ${d.stqr ? `<div style="text-align:center;margin-top:12px"><div class="hq">${QR.svg(stageLink())}</div></div>` : ''}
+  </div>
+  <div class="mlab">Wer leitet? (Einstellungen werden pro Spielleiter gemerkt)</div>
+  <div class="qchips"><button class="qchip${!d.leader ? ' on' : ''}" onclick="stLeader('')">Niemand</button>${players.map(p => `<button class="qchip${d.leader === p.id ? ' on' : ''}" onclick="stLeader('${p.id}')">${ava(p.id)}${esc(dispName(p))}</button>`).join('')}</div>
+  <div class="mlab">Aufteilung oben</div>
+  ${chipRow([['1', '1 Feld'], ['2', '2 Felder'], ['3', '3 Felder']], String(L.n), 'stN')}
+  <div class="mlab">Felder tauschen: erst eins antippen, dann das andere</div>
+  <div class="stcells">${cells}</div>
+  <div class="b2" style="margin-top:10px">${chipRow([['1', 'Mit Frage unten'], ['0', 'Ohne Frage']], L.q ? '1' : '0', 'stQ')}</div>
+  <p class="muted" style="margin:8px 0 0">Die Frage selbst zeigst du im Reiter Überblick mit „Frage zeigen“. Der Gesamtstand erscheint nur, wenn keine Frage zu sehen ist.</p>
+  <div class="mlab">Timer auf der Bühne</div>
+  <div class="qchips">${[30, 60, 90, 120].map(s => `<button class="qchip" onclick="stTimer(${s})">${s >= 120 ? s / 60 + ' min' : s + ' s'}</button>`).join('')}<button class="qchip" onclick="stTimer(0)">Stopp</button></div>`;
+}
+function stSwap(i) {
+  const L = stl(), d = QZ.d;
+  if (d.stsel == null) d.stsel = i; else { const j = d.stsel; d.stsel = null; if (j !== i) [L.order[i], L.order[j]] = [L.order[j], L.order[i]]; save(); }
+  qzSave(); rr();
+}
+function stN(v) { stl().n = Number(v); save(); rr(); }
+function stQ(v) { stl().q = v === '1'; save(); rr(); }
+function stLeader(id) { QZ.d.leader = id; QZ.d.stsel = null; qzSave(); rr(); }
+function stToggleQr() { QZ.d.stqr = !QZ.d.stqr; qzSave(); rr(); }
+function stCopy() { try { navigator.clipboard.writeText(stageLink()); toast('Link kopiert'); } catch (e) { toast('Kopieren nicht möglich'); } }
+function stTimer(s) { if (!bzSend(s ? { t: 'stimer', dur: s } : { t: 'stimer', stop: true })) toast('Keine Verbindung'); }
+function qzStg(k) { QZ.d.stg = QZ.d.stg || { fr: false, sol: false }; QZ.d.stg[k] = !QZ.d.stg[k]; if (k === 'sol' && QZ.d.stg.sol) QZ.d.stg.fr = true; qzSave(); rr(); }
+/* --- Inhalt, den die Bühne bekommt (nur, was freigegeben ist) --- */
+function qzStagePayload() {
+  const z = getQuiz(QZ.id); if (!z || !z.questions.length) return null;
+  const i = Math.min(QZ.d.idx, z.questions.length - 1), q = z.questions[i], L = stl(), g = QZ.d.stg || {}, v = BZ.view, A = z.account;
+  const o = { v: 1, title: z.name, leader: QZ.d.leader ? qzName(QZ.d.leader) : '', idx: i + 1, n: z.questions.length, done: !!QZ.d.done, layout: { n: L.n, order: L.order, q: L.q }, q: null, buzz: null, pts: [], acc: !!A.on };
+  const claimed = v ? v.roster.filter(r => r.taken).length : 0;
+  if (g.fr && !QZ.d.done) {
+    const u = q.type === 'est' ? q.est.unit : '';
+    o.q = { text: q.text, type: q.type, options: q.type === 'mc' ? q.options : null, hasImg: !!(q.media && q.media.kind === 'image'), est: q.type === 'est' ? { min: numv(q.est.min), max: numv(q.est.max), unit: u } : null, sol: !!g.sol, solution: g.sol ? (q.type === 'text' ? q.answer : q.type === 'mc' ? q.correct : numv(q.est.value)) : null };
+  }
+  if (q.input === 'oral') o.buzz = { mode: 'buzz', open: !!(v && v.round.open), order: (v ? v.buzzes : []).map(b => ({ rank: b.rank, name: b.name, ans: b.answering, wrong: b.wrong })) };
+  else {
+    const V = QZ.d.sent === q.id && v && v.q;
+    o.buzz = { mode: 'ans', sent: !!V, open: !!(V && V.open), got: V ? V.answers.length : 0, total: claimed, res: null };
+    if (V && g.sol) {
+      const u = q.type === 'est' && q.est.unit ? ' ' + q.est.unit : '';
+      if (q.input === 'tap') o.buzz.res = V.answers.map(a => ({ name: a.name, txt: 'ABCDEF'[a.v] + '  ' + (q.options[a.v] || ''), ok: a.v === q.correct }));
+      if (q.input === 'type') o.buzz.res = V.answers.map(a => ({ name: a.name, txt: a.v }));
+      if (q.input === 'dial') o.buzz.res = V.answers.slice().sort((x, y) => qzDialDev(q, x.v) - qzDialDev(q, y.v)).map(a => ({ name: a.name, txt: fmtn(a.v) + u, dev: fmtn(qzDialDev(q, a.v)) + u }));
+    }
+  }
+  o.pts = qzRank().map(x => ({ name: x.name, p: x.p, k: A.on ? qzKonto(x.id) : null }));
+  return o;
+}
+async function qzStageImg(q) {
+  const img = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = q.media.data; });
+  if (!img) return null;
+  let mx = 800, qa = 0.65, out = '';
+  for (let k = 0; k < 6; k++) {
+    const s = Math.min(1, mx / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', qa);
+    if (out.length <= 140000) break; mx *= 0.8; qa -= 0.08;
+  }
+  return out.length <= 150000 ? out : null;
+}
+function qzStageSync() {
+  if (!BZ.ws || route().page !== 'qrun' || !QZ.d) return;
+  const p = qzStagePayload(); if (!p) return;
+  const js = JSON.stringify(p);
+  if (js !== QZ.lastStage) { if (bzSend({ t: 'stage', s: p })) QZ.lastStage = js; }
+  const z = getQuiz(QZ.id), q = z.questions[Math.min(QZ.d.idx, z.questions.length - 1)];
+  const want = p.q && p.q.hasImg ? q.id : '';
+  if (want !== (QZ.lastImg || '')) {
+    QZ.lastImg = want;
+    if (!want) bzSend({ t: 'stageimg', v: null });
+    else qzStageImg(q).then(v => { if (QZ.lastImg === want) bzSend({ t: 'stageimg', v }); });
+  }
+}
+/* --- Bühne: Anzeige auf iPad / Fernseher --- */
+const STG = { ws: null, code: '', srv: '', s: null, tm: null, img: null, stopped: true, retry: 0, rt: null, wl: null, tick: null, err: '' };
+function viewStage(code, srv) {
+  setTimeout(() => { if (STG.code !== code || (!STG.ws && STG.stopped)) stgStart(code, srv); stgPaint(); }, 0);
+  return '<div id="stg"></div>';
+}
+function stgStart(code, srv) {
+  stgStop(); STG.code = code; STG.srv = cleanHost(srv) || srvHost(); STG.stopped = false; STG.s = null; STG.tm = null; STG.img = null; STG.err = ''; STG.retry = 0;
+  stgConnect(); STG.tick = setInterval(stgTick, 250);
+  try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { STG.wl = l; }).catch(() => {}); } catch (e) {}
+}
+function stgStop() { STG.stopped = true; try { STG.ws && STG.ws.close(); } catch (e) {} STG.ws = null; clearTimeout(STG.rt); clearInterval(STG.tick); try { STG.wl && STG.wl.release(); } catch (e) {} STG.wl = null; }
+function stgConnect() {
+  if (STG.stopped) return;
+  let ws; try { ws = new WebSocket(wsBase(STG.srv) + '/room/' + STG.code + '/ws'); } catch (e) { STG.err = 'Ungültige Serveradresse'; stgPaint(); return; }
+  STG.ws = ws; let opened = false;
+  ws.onopen = () => { opened = true; STG.retry = 0; STG.err = ''; ws.send(JSON.stringify({ t: 'hello', role: 'stage' })); stgPaint(); };
+  ws.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+    if (m.t !== 'stage') return;
+    if (m.keep) STG.img = m.img;
+    else { STG.s = m.s; STG.tm = m.tm ? { dur: m.tm.dur, end: performance.now() + (m.tm.dur * 1000 - m.tm.el) } : null; if ('img' in m) STG.img = m.img; }
+    stgPaint();
+  };
+  ws.onclose = () => {
+    if (STG.ws === ws) STG.ws = null;
+    if (STG.stopped) return;
+    if (!opened && ++STG.retry >= 4 && !STG.s) { STG.err = 'Raum nicht gefunden. Prüfe den Link.'; stgPaint(); return; }
+    clearTimeout(STG.rt); STG.rt = setTimeout(stgConnect, Math.min(3000, 600 * (STG.retry + 1))); stgPaint();
+  };
+}
+const stgTimeTxt = () => { if (!STG.tm) return '0:00'; const ms = Math.max(0, STG.tm.end - performance.now()), s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function stgTick() { document.querySelectorAll('.stgT').forEach(el => { el.textContent = stgTimeTxt(); el.classList.toggle('end', !!STG.tm && STG.tm.end - performance.now() <= 0); }); }
+function stgField(f, S) {
+  if (f === 'buzzer') {
+    const B = S.buzz; let c = '';
+    if (!B) c = '';
+    else if (B.mode === 'buzz') c = B.order.length ? B.order.slice(0, 5).map((b, i) => `<div class="stgo${i === 0 ? ' first' : ''}${b.wrong ? ' wr' : ''}"><b>${b.rank}</b><span>${esc(b.name)}</span></div>`).join('') : `<div class="stgbig">${B.open ? 'Buzzer bereit' : 'Buzzer gesperrt'}</div>`;
+    else if (!B.sent) c = `<div class="stgbig">Gleich geht es los</div>`;
+    else if (B.res) c = B.res.map(r => `<div class="stgo${r.ok === true ? ' first' : r.ok === false ? ' wr' : ''}"><span>${esc(r.name)}</span><span style="margin-left:auto">${esc(r.txt)}${r.dev ? ` <small>(${esc(r.dev)} daneben)</small>` : ''}</span></div>`).join('');
+    else c = `<div class="stgbig">${B.got} von ${B.total}</div><div class="stgsm">${B.open ? 'haben geantwortet' : 'Antworten gesperrt'}</div>`;
+    return `<div class="stgf"><div class="stgh">${B && B.mode === 'ans' ? 'Antworten' : 'Buzzer'}</div>${c}</div>`;
+  }
+  if (f === 'timer') return `<div class="stgf"><div class="stgh">Timer</div><div class="stgT stgtime">${stgTimeTxt()}</div></div>`;
+  if (f === 'points') return `<div class="stgf"><div class="stgh">Punkte</div>${S.pts.slice(0, 8).map((x, i) => `<div class="stgo"><b>${i + 1}</b><span>${esc(x.name)}</span><span style="margin-left:auto">${x.k != null ? fmtp(x.k) : fmtp(x.p)}</span></div>`).join('') || '<div class="stgsm">Noch keine Punkte</div>'}</div>`;
+  if (f === 'total') return `<div class="stgf total"><div class="stgh">Gesamtstand</div>${S.pts.map((x, i) => `<div class="stgo${i === 0 && x.p > 0 ? ' first' : ''}"><b>${i + 1}</b><span>${esc(x.name)}</span><span style="margin-left:auto">${x.k != null ? fmtp(x.k) : fmtp(x.p)}</span></div>`).join('') || '<div class="stgsm">Noch keine Punkte</div>'}</div>`;
+  return '';
+}
+function stgQuestion(S) {
+  const Q = S.q; let h = `<div class="stgqt">${esc(Q.text)}</div>`;
+  if (Q.hasImg && STG.img) h += `<img class="stgimg" src="${STG.img}" alt="">`;
+  if (Q.options) h += `<div class="stgopts">${Q.options.map((o, i) => o ? `<div class="stgop${Q.sol && i === Q.solution ? ' ok' : ''}"><b>${'ABCDEF'[i]}</b>${esc(o)}</div>` : '').join('')}</div>`;
+  if (Q.est) h += `<div class="stgsm">Schätze zwischen ${fmtn(Q.est.min)} und ${fmtn(Q.est.max)}${Q.est.unit ? ' ' + esc(Q.est.unit) : ''}</div>`;
+  if (Q.sol && Q.type === 'text') h += `<div class="stgsol">${esc(Q.solution)}</div>`;
+  if (Q.sol && Q.type === 'est') h += `<div class="stgsol">${fmtn(Q.solution)}${Q.est.unit ? ' ' + esc(Q.est.unit) : ''}</div>`;
+  return `<div class="stgq">${h}</div>`;
+}
+function stgPaint() {
+  const el = $('stg'); if (!el) return;
+  const S = STG.s;
+  if (!S) { el.innerHTML = `<div class="stgwait"><div>${STG.err ? esc(STG.err) : 'Warte auf den Spielleiter …'}</div><small>Raum ${esc(STG.code)}</small></div>`; return; }
+  const effQ = S.layout.q && !!S.q;
+  const fields = S.layout.order.filter(f => f !== 'total' || !effQ).slice(0, S.layout.n);
+  el.innerHTML = `<div class="stgbar"><span>${esc(S.title)}</span><span>${S.done ? 'Endstand' : 'Frage ' + S.idx + ' von ' + S.n}</span><span>${S.leader ? 'Spielleiter: ' + esc(S.leader) : ''}</span></div>
+  <div class="stgmain"><div class="stgrow n${fields.length}${effQ ? '' : ' full'}">${fields.map(f => stgField(f, S)).join('')}</div>${effQ ? stgQuestion(S) : ''}</div>`;
+  stgTick();
 }
 
 
@@ -1165,7 +1363,7 @@ const clk = () => performance.timeOrigin + performance.now();
 const BZ = { ws: null, code: null, key: null, view: null, status: 'off', retry: 0, t: null, rosterKey: '', showQr: null, everOn: false, err: '' };
 (() => { try { const r = JSON.parse(lsGet(ROOM_KEY, 'null')); if (r && r.code) { BZ.code = r.code; BZ.key = r.key; } } catch (e) {} })();
 const isBzRoute = () => { const r = route(); return (r.page === 'w' && r.sub === 'buzzer') || (r.tab === 'w' && r.sub === 'buzzer') || r.page === 'qrun'; };
-const paintBz = () => { if (!isBzRoute()) return; const r = route(); const el = r.page === 'qrun' && QZ.d && QZ.d.tab === 'ueber' && $('qrLive'); if (el) el.innerHTML = qzLive(); else rr(); };
+const paintBz = () => { if (!isBzRoute()) return; const r = route(); const el = r.page === 'qrun' && QZ.d && QZ.d.tab === 'ueber' && $('qrLive'); if (el) { el.innerHTML = qzLive(); qzStageSync(); } else rr(); };
 function bzRoster() { return people().filter(x => !x.owner).map(x => { const pl = db.players.find(p => p.id === x.pid); return { id: x.key, name: x.name, emoji: (pl && pl.emoji) || '', color: (pl && pl.color) || '' }; }); }
 function bzSend(o) { if (BZ.ws && BZ.ws.readyState === 1) { BZ.ws.send(JSON.stringify(o)); return true; } return false; }
 function bzSendRoster(force) { const list = bzRoster(), k = JSON.stringify(list); if (force || k !== BZ.rosterKey) { if (bzSend({ t: 'roster', list })) BZ.rosterKey = k; } }
