@@ -614,6 +614,7 @@ function route() {
   if (['spieler', 'olympiaden', 'spontan', 'quiz', 'werkzeuge', 'sicherung'].includes(h[0])) return { o: null, page: h[0] };
   if (h[0] === 'w' && h[1]) return { o: null, page: 'w', sub: h[1] };
   if (h[0] === 'stage' && h[1]) return { o: null, page: 'stage', code: h[1].toUpperCase(), srv: decodeURIComponent(h[2] || '') };
+  if (h[0] === 'oly' && h[1]) return { o: null, page: 'oly', code: h[1].toUpperCase(), srv: decodeURIComponent(h[2] || '') };
   if (h[0] === 'buzz' && h[1]) return { o: null, page: 'buzz', code: h[1].toUpperCase(), srv: decodeURIComponent(h[2] || '') };
   return { o: null };
 }
@@ -623,6 +624,7 @@ function render() {
   const r = route();
   if (r.page !== 'w' && r.page !== 'qrun') QZ.from = false;
   if (r.page !== 'buzz' && typeof PB !== 'undefined' && PB.ws) pbStop();
+  if (r.page !== 'oly' && typeof OY !== 'undefined' && !OY.stopped) oyStop();
   if (r.page !== 'stage' && typeof STG !== 'undefined' && !STG.stopped) stgStop();
   $('app').innerHTML = r.o ? viewOlympiad(r.o, r.tab, r.sub) : viewPage(r);
   if (r.o && r.tab === 'run') AudioKit.load();
@@ -645,6 +647,7 @@ function viewPage(r) {
     case 'sicherung': return viewSicherung();
     case 'w': return viewTool(r.sub);
     case 'buzz': return viewBuzz(r.code, r.srv);
+    case 'oly': return viewOly(r.code, r.srv);
     case 'stage': return viewStage(r.code, r.srv);
     default: return viewHome();
   }
@@ -1938,7 +1941,8 @@ function buildInvite(o) {
 
 function tabEinladung(o) {
   if (!o.inviteCustom) o.invite = buildInvite(o);
-  return `
+  setTimeout(() => { if (o.room) { olyConnect(o); olySendRoster(o); } olyPaint(); }, 0);
+  return `<div id="olyBox"></div>
   <div class="card">
     <h2>Einladungsentwurf</h2>
     <p class="muted">Wird aus deinen Daten erzeugt. Du kannst den Text frei ändern – dann bleibt deine Fassung erhalten.</p>
@@ -1949,6 +1953,84 @@ function tabEinladung(o) {
       <button class="sec grow" onclick="resetInvite()">↺ Neu aus Vorlage</button>
     </div>
   </div>`;
+}
+
+/* ============ Olympiaden-Raum (online): Namen antippen ============ */
+const OH = { ws: null, code: null, view: null, status: 'off', rk: '', t: null, qr: false };
+const olyLink = o => location.href.split('#')[0] + '#/oly/' + o.room.code + '/' + encodeURIComponent(srvHost());
+const olyRoster = o => o.participants.filter(p => p.name).map(p => ({ id: p.id, name: p.name }));
+function olySendRoster(o) { const l = olyRoster(o), k = JSON.stringify(l); if (OH.ws && OH.ws.readyState === 1 && k !== OH.rk) { OH.ws.send(JSON.stringify({ t: 'roster', list: l })); OH.rk = k; } }
+function olyConnect(o) {
+  if (!o.room || (OH.ws && OH.code === o.room.code)) return;
+  try { OH.ws && OH.ws.close(); } catch (e) {}
+  OH.code = o.room.code; OH.status = 'connecting'; OH.rk = ''; OH.view = null;
+  let ws; try { ws = new WebSocket(wsBase(srvHost()) + '/room/' + o.room.code + '/ws'); } catch (e) { return; }
+  OH.ws = ws;
+  ws.onopen = () => { OH.status = 'on'; ws.send(JSON.stringify({ t: 'hello', role: 'host', key: o.room.key })); olySendRoster(o); olyPaint(); };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'host') { OH.view = m; olyPaint(); } };
+  ws.onclose = () => { if (OH.ws !== ws) return; OH.ws = null; OH.status = 'off'; OH.code = null; clearTimeout(OH.t); OH.t = setTimeout(() => { const c = cur(); if (c && c.room) olyConnect(c); }, 2500); olyPaint(); };
+}
+function olyPaint() { const o = cur(), el = $('olyBox'); if (el && o) el.innerHTML = olyBoxHtml(o); }
+function olyBoxHtml(o) {
+  if (!o.room) return `<div class="card"><h2>Online-Raum</h2><p class="muted">Die Teilnehmer treten per Link bei und tippen ihren Namen an. Lege vorher die Teilnehmerliste an.</p><button style="width:100%" onclick="olyCreate()" ${o.participants.length ? '' : 'disabled'}>🔗 Raum öffnen</button>${o.participants.length ? '' : '<p class="muted" style="margin:8px 0 0">Es sind noch keine Teilnehmer eingetragen.</p>'}</div>`;
+  const taken = {}; ((OH.view && OH.view.roster) || []).forEach(r => { taken[r.id] = r.taken; });
+  const rows = olyRoster(o).map(p => `<li><span class="grow">${esc(p.name)}</span>${taken[p.id] ? `<span class="muted">angemeldet</span> <button class="sec" onclick="olyFree('${p.id}')">Freigeben</button>` : '<span class="muted">frei</span>'}</li>`).join('');
+  return `<div class="card"><h2>Online-Raum ${OH.status === 'on' ? '' : '<span class="muted">(verbindet …)</span>'}</h2>
+  <p class="muted" style="margin-top:0">Alle öffnen diesen Link und tippen ihren Namen an.</p>
+  <div class="row wrap"><button class="grow" onclick="olyCopy()">🔗 Link kopieren</button><button class="sec grow" onclick="OH.qr=!OH.qr;olyPaint()">${OH.qr ? 'QR-Code ausblenden' : 'QR-Code anzeigen'}</button></div>
+  ${OH.qr ? `<div style="text-align:center;margin-top:12px"><div class="hq">${QR.svg(olyLink(o))}</div><div class="hcode">${esc(o.room.code)}</div></div>` : ''}
+  <ul class="plist" style="margin-top:12px">${rows}</ul>
+  <button class="sec" style="width:100%;margin-top:8px" onclick="olyEnd()">Raum schließen</button></div>`;
+}
+async function olyCreate() {
+  const o = cur(); if (!o) return;
+  try { const r = await fetch(httpBase(srvHost()) + '/room', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'oly' }) }); if (!r.ok) throw 0; const j = await r.json(); o.room = { code: j.code, key: j.key }; save(); rr(); }
+  catch (e) { toast('Server nicht erreichbar'); }
+}
+function olyCopy() { const o = cur(); try { navigator.clipboard.writeText(olyLink(o)); toast('Link kopiert'); } catch (e) { toast('Kopieren nicht möglich'); } }
+function olyFree(id) { if (OH.ws && OH.ws.readyState === 1) OH.ws.send(JSON.stringify({ t: 'kick', id })); }
+async function olyEnd() {
+  const o = cur(); if (!o || !await ask({ icon: '🔗', title: 'Raum schließen?', text: 'Alle werden getrennt, und hinterlegte Einwürfe werden gelöscht.', ok: 'Schließen', danger: true })) return;
+  try { OH.ws && OH.ws.send(JSON.stringify({ t: 'end' })); OH.ws && OH.ws.close(); } catch (e) {}
+  OH.ws = null; OH.code = null; OH.view = null; delete o.room; save(); rr();
+}
+
+/* --- Teilnehmer: Name antippen, Spielerseite --- */
+const OY = { ws: null, code: '', srv: '', st: null, err: '', stopped: true, retry: 0, rt: null };
+function viewOly(code, srv) {
+  setTimeout(() => { if (OY.code !== code || (!OY.ws && OY.stopped)) oyStart(code, srv); oyPaint(); }, 0);
+  return '<div id="oy"></div>';
+}
+function oyStart(code, srv) { oyStop(); OY.code = code; OY.srv = cleanHost(srv) || srvHost(); OY.stopped = false; OY.st = null; OY.err = ''; OY.retry = 0; oyConnect(); }
+function oyStop() { OY.stopped = true; try { OY.ws && OY.ws.close(); } catch (e) {} OY.ws = null; clearTimeout(OY.rt); }
+function oyConnect() {
+  if (OY.stopped) return;
+  let ws; try { ws = new WebSocket(wsBase(OY.srv) + '/room/' + OY.code + '/ws'); } catch (e) { OY.err = 'Ungültige Serveradresse'; oyPaint(); return; }
+  OY.ws = ws; let opened = false;
+  ws.onopen = () => { opened = true; OY.retry = 0; OY.err = ''; ws.send(JSON.stringify({ t: 'hello', role: 'player', dev: devId() })); oyPaint(); };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'state') { OY.st = m; OY.err = ''; oyPaint(); } else if (m.t === 'error' && m.e === 'taken') toast('Dieser Name ist schon vergeben'); };
+  ws.onclose = () => { OY.ws = null; if (OY.stopped) return; if (!opened && ++OY.retry >= 3) { OY.err = 'Raum nicht gefunden oder Server nicht erreichbar.'; oyPaint(); return; } OY.rt = setTimeout(oyConnect, Math.min(4000, 800 * (OY.retry + 1))); oyPaint(); };
+}
+const oySend = o => { if (OY.ws && OY.ws.readyState === 1) { OY.ws.send(JSON.stringify(o)); return true; } toast('Keine Verbindung'); return false; };
+function oyClaim(id) { oySend({ t: 'claim', id }); }
+function oyRelease() { oySend({ t: 'release' }); }
+function oyPaint() { const el = $('oy'); if (el) el.innerHTML = oyHtml(); }
+function oyHtml() {
+  const head = `<a class="back" href="#/">‹ Hauptmenü</a>`;
+  if (OY.err) return head + `<div class="card"><p>${esc(OY.err)}</p></div>`;
+  const S = OY.st; if (!S) return head + '<div class="empty">Verbinde …</div>';
+  const me = S.roster.find(r => r.mine);
+  if (!me) return head + `<div class="mhead"><h2>Wer bist du?</h2></div><p class="muted">Tippe auf deinen Namen.</p>` + S.roster.map(r => r.taken ? `<div class="mrow" style="opacity:.45"><span class="grow">${esc(r.name)}</span><span class="muted">vergeben</span></div>` : `<button class="sec" style="width:100%;margin-bottom:6px;text-align:left" onclick="oyClaim('${r.id}')">${esc(r.name)}</button>`).join('') || '<div class="empty">Noch keine Namen eingetragen.</div>';
+  return head + `<div class="mhead"><h2>Hallo ${esc(me.name)}</h2></div>
+  <div class="card" style="border-color:var(--gold,#d9b45a)"><h3 style="margin-top:0">Halte dein Spiel geheim</h3><p style="margin:0">Den Namen deines Spiels trägst du erst am Olympiade-Tag ein, geheim und vor dem Start. Dann wird ausgelost, und alle erfahren es erst, wenn du dran bist.</p></div>
+  <div class="card"><h3 style="margin-top:0">Du leitest ein Spiel</h3><p class="muted" style="margin-top:0">Jeder leitet in dieser Olympiade genau eins. Dafür bekommst du in diesem Spiel keine Punkte.</p>
+  <h3>Worauf du achten solltest</h3><ul class="rules"><li>Alles ist erlaubt: Geschicklichkeit, Glück, Kartenspiel, Quiz und mehr</li><li>Es braucht klare erste drei Plätze</li><li>Überlege dir ein Stechen für den Gleichstand</li></ul></div>
+  <div class="mlab">Werkzeuge, wenn du magst</div>
+  ${mrow('🔔', 'Buzzer', 'Wer ist zuerst?', '#/w/buzzer')}
+  ${mrow('⏱️', 'Timer', 'Zeit herunterzählen', '#/w/timer')}
+  ${mrow('⏲️', 'Stoppuhr', 'Zeit nehmen, Runden', '#/w/stoppuhr')}
+  ${mrow('❓', 'Quizgenerator', 'Quiz bauen', '#/quiz')}
+  <p class="muted" style="margin-top:12px">Nur du siehst diese Seite. <a href="#" onclick="oyRelease();return false">Das bin ich nicht</a></p>`;
 }
 
 function tabRegeln() {
