@@ -344,6 +344,13 @@ button.shown{border-color:var(--gold)!important;color:var(--gold)}
 .stgwait{margin:auto;text-align:center;font-size:5vmin}.stgwait small{display:block;font-size:2.6vmin;color:#8b90bd;margin-top:1.5vmin}
 .stgbar{display:flex;justify-content:space-between;font-size:2.6vmin;color:#8b90bd;flex:none}
 .stgmain{flex:1;display:flex;flex-direction:column;gap:2vmin;min-height:0}
+.mnstage{aspect-ratio:16/9;background:#14161c;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;touch-action:pan-y}
+.mnbar{height:14px;background:#2a2e38;border-radius:3px;font-size:10px;color:#aab;line-height:14px;padding-left:6px}
+.mnrow{display:grid;gap:6px;flex:0 0 36%;min-height:0}.mnrow.full{flex:1}.mnrow.n1{grid-template-columns:1fr}.mnrow.n2{grid-template-columns:1fr 1fr}.mnrow.n3{grid-template-columns:1fr 1fr 1fr}
+.mnq{flex:1;background:#323846;border-radius:5px;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px}
+.mnc{background:#2a2e38;border:1.5px dashed #d9b45a;border-radius:5px;color:#d9b45a;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;position:relative;min-height:30px}
+.mnc .grip{position:absolute;top:1px;left:4px;font-size:11px;opacity:.7}.mnc small{font-size:9px;opacity:.8}.mnc.dim{opacity:.55}.mnc.sel{background:#d9b45a;color:#2c2200}
+.mnhid{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}.mnhid .mnc{padding:6px 12px;min-height:0;background:var(--surface-2);flex-direction:row;gap:4px}
 .stgrow{display:grid;gap:2vmin;flex:0 0 36%;min-height:0}.stgrow.full{flex:1}
 .stgrow.n1{grid-template-columns:1fr}.stgrow.n2{grid-template-columns:1fr 1fr}.stgrow.n3{grid-template-columns:1fr 1fr 1fr}
 .stgf{background:#151a3a;border:1px solid #2c3160;border-radius:2.4vmin;padding:2vmin 2.4vmin;overflow:hidden;display:flex;flex-direction:column;gap:1vmin;min-height:0}
@@ -620,7 +627,13 @@ function render() {
   $('app').innerHTML = r.o ? viewOlympiad(r.o, r.tab, r.sub) : viewPage(r);
   if (r.o && r.tab === 'run') AudioKit.load();
 }
-window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', e => {
+  try {
+    const r = route(), prev = new URL(e.oldURL).hash || '#/';
+    if (r.page === 'qrun' && !/^#\/(quizrun|w\/|buzz|stage)/.test(prev)) sessionStorage.setItem('spieleolympiade.qback.' + r.qz, prev);
+  } catch (x) {}
+  render(); window.scrollTo(0, 0);
+});
 function viewPage(r) {
   switch (r.page) {
     case 'spieler': return viewSpieler();
@@ -975,7 +988,9 @@ function viewQuizRun(id) {
   const d = QZ.d, n = z.questions.length;
   setTimeout(() => { if (BZ.code && !BZ.ws && BZ.status !== 'connecting') bzConnect(); else if (BZ.ws) { bzSendRoster(); qzStageSync(); } }, 0);
   const tabs = `<div class="qtabs">${QTABS.map(([k, ic, l]) => `<button class="${d.tab === k ? 'on' : ''}" onclick="qzTab('${k}')"><span>${ic}</span><small>${l}</small></button>`).join('')}</div>`;
-  const head = `<a class="back" href="#/quiz/${z.id}">‹ ${esc(z.name)}</a>`;
+  let bk = '#/quiz/' + z.id, bl = z.name;
+  try { const b = sessionStorage.getItem('spieleolympiade.qback.' + z.id); if (b && b !== location.hash) { bk = b; bl = b === '#/' || b === '#' ? 'Start' : b.startsWith('#/spontan') ? 'Spontanquiz' : b === '#/quiz' ? 'Quiz-Sammlung' : b.startsWith('#/quiz/') ? (getQuiz(b.split('/')[2]) || z).name : 'Zurück'; } } catch (e) {}
+  const head = `<a class="back" href="${esc(bk)}">‹ ${esc(bl)}</a>`;
   let body = '';
   if (!n) body = '<div class="empty">Dieses Quiz hat noch keine Fragen.</div>';
   else if (d.tab === 'ueber') {
@@ -1110,7 +1125,9 @@ function viewStageTab(z) {
   const L = stl(), d = QZ.d;
   if (!BZ.code) return `<div class="card"><p style="margin-top:0">Für die Bühne brauchst du einen Raum. Das iPad tritt dem Raum wie ein Handy bei, zeigt aber nur, was du freigibst.</p><button class="sec" style="width:100%" onclick="bzCreate()">🔔 Raum öffnen</button></div>`;
   const players = sortedPlayers();
-  const cells = L.order.map((f, i) => `<button class="stc${i < L.n ? ' on' : ''}${d.stsel === i ? ' sel' : ''}" onclick="stSwap(${i})"><small>${i < L.n ? (f === 'total' && L.q ? 'nur ohne Frage' : 'sichtbar') : 'versteckt'}</small>${STG_NAMES[f]}</button>`).join('');
+  const mc = (f, i) => `<div class="mnc${d.stsel === i ? ' sel' : ''}${f === 'total' && L.q ? ' dim' : ''}" data-i="${i}" onpointerdown="stDragStart(event,${i})"><span class="grip">⠿</span>${STG_NAMES[f]}${f === 'total' && L.q ? '<small>nur ohne Frage</small>' : ''}</div>`;
+  const mini = `<div class="mnstage"><div class="mnbar">Spielleiter${d.leader ? ' · ' + esc(dispName(players.find(p => p.id === d.leader) || { id: d.leader })) : ''}</div><div class="mnrow n${L.n}${L.q ? '' : ' full'}">${L.order.slice(0, L.n).map((f, i) => mc(f, i)).join('')}</div>${L.q ? '<div class="mnq">Frage</div>' : ''}</div>
+  <div class="mnhid"><small>Versteckt:</small> ${L.order.slice(L.n).map((f, i) => mc(f, i + L.n)).join('') || '<small>keins</small>'}</div>`;
   return `<div class="card">
     <b>Bühne öffnen</b>
     <p class="muted" style="margin:6px 0 10px">Öffne diesen Link auf dem iPad im Querformat, oder scanne den Code. Dort erscheint nur, was du freigibst.</p>
@@ -1119,11 +1136,11 @@ function viewStageTab(z) {
   </div>
   <div class="mlab">Wer leitet? (Einstellungen werden pro Spielleiter gemerkt)</div>
   <div class="qchips"><button class="qchip${!d.leader ? ' on' : ''}" onclick="stLeader('')">Niemand</button>${players.map(p => `<button class="qchip${d.leader === p.id ? ' on' : ''}" onclick="stLeader('${p.id}')">${ava(p.id)}${esc(dispName(p))}</button>`).join('')}</div>
-  <div class="mlab">Aufteilung oben</div>
+  <div class="mlab">Aufteilung</div>
   ${chipRow([['1', '1 Feld'], ['2', '2 Felder'], ['3', '3 Felder']], String(L.n), 'stN')}
-  <div class="mlab">Felder tauschen: erst eins antippen, dann das andere</div>
-  <div class="stcells">${cells}</div>
-  <div class="b2" style="margin-top:10px">${chipRow([['1', 'Mit Frage unten'], ['0', 'Ohne Frage']], L.q ? '1' : '0', 'stQ')}</div>
+  <div class="b2" style="margin-top:8px">${chipRow([['1', 'Mit Frage unten'], ['0', 'Ohne Frage']], L.q ? '1' : '0', 'stQ')}</div>
+  <div class="mlab">So sieht die Bühne aus. Felder ziehen oder zwei antippen zum Tauschen.</div>
+  ${mini}
   <p class="muted" style="margin:8px 0 0">Die Frage selbst zeigst du im Reiter Überblick mit „Frage zeigen“. Der Gesamtstand erscheint nur, wenn keine Frage zu sehen ist.</p>
   <div class="mlab">Timer auf der Bühne</div>
   <div class="qchips">${[30, 60, 90, 120].map(s => `<button class="qchip" onclick="stTimer(${s})">${s >= 120 ? s / 60 + ' min' : s + ' s'}</button>`).join('')}<button class="qchip" onclick="stTimer(0)">Stopp</button></div>`;
@@ -1132,6 +1149,20 @@ function stSwap(i) {
   const L = stl(), d = QZ.d;
   if (d.stsel == null) d.stsel = i; else { const j = d.stsel; d.stsel = null; if (j !== i) [L.order[i], L.order[j]] = [L.order[j], L.order[i]]; save(); }
   qzSave(); rr();
+}
+let STD = null;
+function stDragStart(e, i) {
+  STD = { i, x: e.clientX, y: e.clientY, moved: false };
+  const mv = ev => { if (Math.abs(ev.clientX - STD.x) + Math.abs(ev.clientY - STD.y) > 8) STD.moved = true; };
+  const up = ev => {
+    document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up);
+    const t = STD; STD = null;
+    if (t.moved) {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY), c = el && el.closest && el.closest('[data-i]'), j = c ? Number(c.dataset.i) : -1;
+      if (j >= 0 && j !== t.i) { const L = stl(); [L.order[t.i], L.order[j]] = [L.order[j], L.order[t.i]]; QZ.d.stsel = null; save(); qzSave(); rr(); } else rr();
+    } else stSwap(t.i);
+  };
+  document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
 }
 function stN(v) { stl().n = Number(v); save(); rr(); }
 function stQ(v) { stl().q = v === '1'; save(); rr(); }
