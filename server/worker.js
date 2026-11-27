@@ -13,6 +13,7 @@ const rnd = (n) => { const a = new Uint8Array(n); crypto.getRandomValues(a); ret
 const makeCode = () => Array.from(rnd(4), (b) => ALPHA[b % ALPHA.length]).join("");
 const makeKey = () => Array.from(rnd(16), (b) => b.toString(16).padStart(2, "0")).join("");
 const LIFETIME = 24 * 3600 * 1000;
+const OLY_LIFETIME = 90 * 24 * 3600 * 1000;
 
 export default {
   async fetch(req, env) {
@@ -22,10 +23,11 @@ export default {
 
     if (url.pathname === "/room" && req.method === "POST") {
       const key = makeKey();
+      let kind = "quiz"; try { const b = await req.json(); if (b && b.kind === "oly") kind = "oly"; } catch (e) {}
       for (let i = 0; i < 8; i++) {
         const code = makeCode();
         const stub = env.ROOMS.get(env.ROOMS.idFromName(code));
-        const r = await stub.fetch("https://room/init", { method: "POST", body: JSON.stringify({ key }) });
+        const r = await stub.fetch("https://room/init", { method: "POST", body: JSON.stringify({ key, kind }) });
         if (r.status === 200) return json({ code, key });
       }
       return json({ error: "busy" }, 503);
@@ -58,8 +60,8 @@ export class Room extends DurableObject {
     const url = new URL(req.url);
     if (url.pathname === "/init") {
       if (this.st) return new Response("exists", { status: 409 });
-      const { key } = await req.json();
-      this.st = L.newState(String(key), Date.now());
+      const { key, kind } = await req.json();
+      this.st = L.newState(String(key), Date.now(), kind);
       await this.save();
       return new Response("ok");
     }
@@ -71,13 +73,20 @@ export class Room extends DurableObject {
 
   async save() {
     await this.ctx.storage.put("st", this.st);
-    await this.ctx.storage.setAlarm(Date.now() + LIFETIME);
+    await this.ctx.storage.setAlarm(Date.now() + (this.st && this.st.kind === "oly" ? OLY_LIFETIME : LIFETIME));
   }
 
   async clearHand() {
     const keys = Object.keys(this.hand).map((id) => "h:" + id);
     this.hand = {};
     if (keys.length) await this.ctx.storage.delete(keys);
+  }
+
+  async dropClear(rid) {
+    const x = this.st.drops && this.st.drops[rid]; const n = x ? x.n : 80;
+    const keys = []; for (let i = 0; i < n; i++) keys.push("d:" + rid + ":" + i);
+    await this.ctx.storage.delete(keys);
+    L.dropDel(this.st, rid);
   }
 
   async alarm() {
@@ -138,7 +147,7 @@ export class Room extends DurableObject {
       return;
     }
     if (!a.role || a.role === "stage") return;
-    if (a.role !== "host" && raw.length > 20000) return;
+    if (a.role !== "host" && raw.length > (m.t === "dropchunk" ? 130000 : 20000)) return;
 
     let changed = false;
     if (a.role === "host") {
@@ -169,6 +178,14 @@ export class Room extends DurableObject {
         case "qlock": L.lockQuestion(this.st); changed = true; break;
         case "qopen": L.openQuestion(this.st); changed = true; break;
         case "qclear": L.clearQuestion(this.st); await this.clearHand(); changed = true; break;
+        case "dropinfo": { const id = String(m.id); this.send(ws, { t: "dropinfo", id, ...L.dropInfo(this.st, id) }); break; }
+        case "dropget": {
+          const id = String(m.id), inf = L.dropInfo(this.st, id);
+          if (!inf.has) { this.send(ws, { t: "dropdata", id, none: true }); break; }
+          for (let i = 0; i < inf.n; i++) this.send(ws, { t: "dropdata", id, i, n: inf.n, d: await this.ctx.storage.get("d:" + id + ":" + i) });
+          break;
+        }
+        case "dropclear": await this.dropClear(String(m.id)); changed = true; break;
         case "kick": delete this.st.claims[String(m.id)]; changed = true; break;
         case "end": await this.alarm(); return;
       }
@@ -176,6 +193,23 @@ export class Room extends DurableObject {
       switch (m.t) {
         case "claim": { const r = L.claim(this.st, a.dev, String(m.id)); if (r !== "ok") this.send(ws, { t: "error", e: r }); changed = true; break; }
         case "guest": { const r = L.addGuest(this.st, a.dev, m.name); if (r !== "ok") this.send(ws, { t: "error", e: r }); changed = true; break; }
+        case "dropstart": {
+          const rid = L.ridOf(this.st, a.dev); if (!rid) break;
+          if (this.st.kind !== "oly") { this.send(ws, { t: "error", e: "drop-kind" }); break; }
+          await this.dropClear(rid);
+          const r = L.dropStart(this.st, rid, m);
+          if (r !== "ok") this.send(ws, { t: "error", e: "drop-bad" });
+          changed = true; break;
+        }
+        case "dropchunk": {
+          const rid = L.ridOf(this.st, a.dev); if (!rid) break;
+          const r = L.dropChunk(this.st, rid, m.i, m.d);
+          if (r === "bad") { this.send(ws, { t: "error", e: "drop-bad" }); break; }
+          await this.ctx.storage.put("d:" + rid + ":" + m.i, m.d);
+          changed = r === "done"; if (r === "ok") await this.save();
+          break;
+        }
+        case "dropdel": { const rid = L.ridOf(this.st, a.dev); if (rid) { await this.dropClear(rid); changed = true; } break; }
         case "release": L.release(this.st, a.dev); changed = true; break;
         case "answer": {
           const rid = L.ridOf(this.st, a.dev); if (!rid) break;

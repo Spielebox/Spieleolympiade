@@ -3,8 +3,11 @@ export const TIE_MS = -1;          // keine Gleichzeitigkeit: laut ermittelter Z
 export const MAX_AGE_MS = 3000;    // älteste erlaubte Rückdatierung eines Buzzers
 export const HAND_MAX = 14000;     // größte erlaubte Handschrift-Antwort (Zeichen der Bild-URL)
 
-export function newState(hostKey, now) {
-  return { hostKey, created: now, roster: [], claims: {}, guestNo: 0,
+export const DROP_MAX = 5000000;   // größter Einwurf (Zeichen, ca. 5 MB)
+export const CHUNK_MAX = 120000;   // größtes Teilstück pro Nachricht
+
+export function newState(hostKey, now, kind) {
+  return { hostKey, created: now, kind: kind === 'oly' ? 'oly' : 'quiz', drops: {}, roster: [], claims: {}, guestNo: 0,
     round: { no: 0, open: false, openedAt: 0, buzzes: [], wrong: [] } };
 }
 
@@ -107,6 +110,30 @@ export function submitAnswer(st, rid, v) {
   return 'bad';
 }
 
+/* ---- Einwurf (geheim hinterlegtes Quiz) ---- */
+// Die Teilstücke selbst liegen im Speicher des Servers; hier stehen nur die Eckdaten.
+export function dropStart(st, rid, m) {
+  if (!rid || !m) return 'bad';
+  const n = Number(m.n), bytes = Number(m.bytes);
+  if (!Number.isInteger(n) || n < 1 || n > Math.ceil(DROP_MAX / CHUNK_MAX) + 1 || !(bytes > 0) || bytes > DROP_MAX) return 'bad';
+  const name = clean(m.name, 60); if (!name) return 'bad';
+  st.drops = st.drops || {};
+  st.drops[rid] = { name, bytes, n, qn: Math.max(0, Math.min(999, Number(m.qn) || 0)), have: [], at: Date.now(), done: false };
+  return 'ok';
+}
+export function dropChunk(st, rid, i, d) {
+  const x = st.drops && st.drops[rid]; if (!x || x.done) return 'bad';
+  if (!Number.isInteger(i) || i < 0 || i >= x.n || typeof d !== 'string' || !d.length || d.length > CHUNK_MAX) return 'bad';
+  if (!x.have.includes(i)) x.have.push(i);
+  if (x.have.length === x.n) x.done = true;
+  return x.done ? 'done' : 'ok';
+}
+export function dropDel(st, rid) { if (st.drops) delete st.drops[rid]; }
+export function dropInfo(st, rid) {
+  const x = st.drops && st.drops[rid];
+  return x && x.done ? { has: true, name: x.name, qn: x.qn, bytes: x.bytes, n: x.n } : { has: false };
+}
+
 const nameOf = (st, id) => (st.roster.find(r => r.id === id) || {}).name || '?';
 
 export function viewForPlayer(st, dev) {
@@ -117,7 +144,7 @@ export function viewForPlayer(st, dev) {
     if (g) mine = { rank: g.start + 1, answering: ans.includes(me), wrong: R.wrong.includes(me) };
   }
   return {
-    t: 'state', me,
+    t: 'state', me, kind: st.kind || 'quiz', drop: me ? dropInfo(st, me) : null,
     roster: st.roster.map(r => ({ id: r.id, name: r.name, emoji: r.emoji, color: r.color, taken: !!st.claims[r.id], mine: r.id === me })),
     round: { no: R.no, open: R.open, mine, answering: ans.map(i => nameOf(st, i)), anyBuzz: R.buzzes.length > 0 },
     q: st.q ? { no: st.q.no, input: st.q.input, text: st.q.text, options: st.q.options || null, est: st.q.est || null, open: st.q.open, mine: me ? st.q.answers[me] !== undefined : false, v: me && st.q.answers[me] && !st.q.answers[me].hand ? st.q.answers[me].v : null } : null,
@@ -128,7 +155,7 @@ export function viewForHost(st, online, hand) {
   const R = st.round, ans = new Set(answering(st)), wrong = new Set(R.wrong), t0 = R.buzzes.length ? R.buzzes[0].t : 0;
   const gs = groups(st);
   return {
-    t: 'host', round: { no: R.no, open: R.open },
+    t: 'host', kind: st.kind || 'quiz', round: { no: R.no, open: R.open },
     roster: st.roster.map(r => ({ id: r.id, name: r.name, emoji: r.emoji, color: r.color, taken: !!st.claims[r.id], online: online ? online.has(st.claims[r.id]) : false, guest: !!r.guest })),
     buzzes: R.buzzes.map((b, i) => ({ id: b.id, name: nameOf(st, b.id), dt: Math.round(b.t - t0), rtt: b.rtt, rank: gs.find(g => g.ids.includes(b.id)).start + 1, answering: ans.has(b.id), wrong: wrong.has(b.id) })),
     q: st.q ? { no: st.q.no, input: st.q.input, open: st.q.open, est: st.q.est || null,
