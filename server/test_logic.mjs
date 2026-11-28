@@ -84,3 +84,26 @@ console.log('LOGIC OK');
   L.dropDel(so, 'm'); assert.equal(L.dropInfo(so, 'm').has, false);
   console.log('EINWURF OK');
 }
+
+// ---- Spielleiter ----
+{
+  const sl = L.newState('k', 1, 'oly'); L.setRoster(sl, [{id:'m',name:'Mia'},{id:'b',name:'Ben'}]); L.claim(sl,'dM','m'); L.claim(sl,'dB','b');
+  assert.equal(L.gameStart(sl, 'x', 'T'), false);
+  assert.equal(L.gameStart(sl, 'm', 'Länder'), true); assert.equal(L.isLeader(sl,'m'), true); assert.equal(L.isLeader(sl,'b'), false);
+  L.openRound(sl, 100); assert.equal(L.buzz(sl, 'm', 100, 100, 0), false, 'Leiter buzzert nicht'); assert.equal(L.buzz(sl, 'b', 100, 100, 0), true);
+  assert.equal(L.viewForPlayer(sl,'dM').game.mine, true); assert.equal(L.viewForPlayer(sl,'dB').game.mine, false); assert.equal(L.viewForPlayer(sl,'dB').game.leader, 'Mia');
+  assert.equal(L.viewForHost(sl, new Set(), {}).leader, 'm');
+  L.gameEnd(sl); assert.equal(sl.leader, null); assert.equal(L.viewForPlayer(sl,'dB').game, null);
+  console.log('SPIELLEITER OK');
+}
+
+// ---- Vorbereitung und Start durch den Spielleiter ----
+{
+  const sp = L.newState('k', 1, 'oly'); L.setRoster(sp, [{id:'m',name:'Mia'},{id:'b',name:'Ben'}]); L.claim(sp,'dM','m'); L.claim(sp,'dB','b');
+  assert.equal(L.gamePrep(sp, 'x', 'T', true), false); assert.equal(L.gamePrep(sp, 'm', 'Länder', true), true);
+  assert.deepEqual(L.viewForPlayer(sp,'dM').prep, { title: 'Länder', quiz: true, mine: true }); assert.equal(L.viewForPlayer(sp,'dB').prep.mine, false);
+  assert.equal(L.leadStart(sp, 'b'), false); assert.equal(sp.leader, null);
+  assert.equal(L.leadStart(sp, 'm'), true); assert.equal(sp.leader, 'm'); assert.equal(L.viewForPlayer(sp,'dB').prep, null); assert.equal(L.viewForPlayer(sp,'dM').game.mine, true);
+  L.gameEnd(sp); assert.equal(sp.prep, null);
+  console.log('VORBEREITUNG OK');
+}

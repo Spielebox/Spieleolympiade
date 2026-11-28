@@ -13,6 +13,7 @@ const rnd = (n) => { const a = new Uint8Array(n); crypto.getRandomValues(a); ret
 const makeCode = () => Array.from(rnd(4), (b) => ALPHA[b % ALPHA.length]).join("");
 const makeKey = () => Array.from(rnd(16), (b) => b.toString(16).padStart(2, "0")).join("");
 const LIFETIME = 24 * 3600 * 1000;
+const LEADER_OPS = new Set(["open", "lock", "unlock", "reset", "wrong", "markWrong", "ask", "stage", "stageimg", "stimer", "qlock", "qopen", "qclear"]);
 const OLY_LIFETIME = 90 * 24 * 3600 * 1000;
 
 export default {
@@ -111,7 +112,10 @@ export class Room extends DurableObject {
     this.getSockets().forEach((ws) => {
       const a = this.att(ws);
       if (a.role === "host") this.send(ws, L.viewForHost(this.st, online, this.hand));
-      else if (a.role === "player") this.send(ws, L.viewForPlayer(this.st, a.dev));
+      else if (a.role === "player") {
+        this.send(ws, L.viewForPlayer(this.st, a.dev));
+        if (L.isLeader(this.st, L.ridOf(this.st, a.dev))) this.send(ws, L.viewForHost(this.st, online, this.hand));
+      }
       else if (a.role === "stage") this.send(ws, this.stageMsg(false));
     });
   }
@@ -147,6 +151,7 @@ export class Room extends DurableObject {
       return;
     }
     if (!a.role || a.role === "stage") return;
+    if (a.role === "player" && LEADER_OPS.has(m.t) && L.isLeader(this.st, L.ridOf(this.st, a.dev))) a = { role: "host", leader: true };
     if (a.role !== "host" && raw.length > (m.t === "dropchunk" ? 130000 : 20000)) return;
 
     let changed = false;
@@ -186,6 +191,9 @@ export class Room extends DurableObject {
           break;
         }
         case "dropclear": await this.dropClear(String(m.id)); changed = true; break;
+        case "gamestart": { if (L.gameStart(this.st, String(m.id), m.title)) { await this.clearHand(); changed = true; } else this.send(ws, { t: "error", e: "game-bad" }); break; }
+        case "gameprep": { if (L.gamePrep(this.st, m.id ? String(m.id) : null, m.title, m.quiz)) changed = true; break; }
+        case "gameend": L.gameEnd(this.st); await this.clearHand(); changed = true; break;
         case "kick": delete this.st.claims[String(m.id)]; changed = true; break;
         case "end": await this.alarm(); return;
       }
@@ -207,6 +215,13 @@ export class Room extends DurableObject {
           if (r === "bad") { this.send(ws, { t: "error", e: "drop-bad" }); break; }
           await this.ctx.storage.put("d:" + rid + ":" + m.i, m.d);
           changed = r === "done"; if (r === "ok") await this.save();
+          break;
+        }
+        case "leadstart": { const rid = L.ridOf(this.st, a.dev); if (rid && L.leadStart(this.st, rid)) { await this.clearHand(); changed = true; } break; }
+        case "dropmine": {
+          const rid = L.ridOf(this.st, a.dev), inf = rid ? L.dropInfo(this.st, rid) : { has: false };
+          if (!inf.has) { this.send(ws, { t: "dropdata", id: rid, none: true }); break; }
+          for (let i = 0; i < inf.n; i++) this.send(ws, { t: "dropdata", id: rid, i, n: inf.n, d: await this.ctx.storage.get("d:" + rid + ":" + i) });
           break;
         }
         case "dropdel": { const rid = L.ridOf(this.st, a.dev); if (rid) { await this.dropClear(rid); changed = true; } break; }
