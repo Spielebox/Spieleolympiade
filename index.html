@@ -1622,15 +1622,17 @@ const OYH = {
   timer: 'Zählt von einer Zeit herunter, zum Beispiel 60 Sekunden für eine Runde. Probiere ihn gleich aus.',
   stoppuhr: 'Misst die Zeit hoch, zum Beispiel wer eine Aufgabe am schnellsten schafft. Mit Rundenzeiten.',
   punkte: 'Hält fest, wer wie viele Punkte hat, mit Plus und Minus. Zum Ausprobieren, ohne Verbindung zur Olympiade.',
-  quiz: 'Baue Fragen mit Antworten, Bildern oder Schätzfragen. Dein Quiz bleibt erst einmal nur bei dir.'
+  quiz: 'Hier kannst du ein eigenes Quizspiel vorbereiten, um es am Olympiade-Tag zu spielen. Baue Fragen mit Antworten, Bildern oder Schätzfragen. Dein Quiz bleibt geheim und nur bei dir.'
 };
-const oyHint = k => oyBack() && OYH[k] ? `<div class="card" style="margin:0 0 10px"><b>Zum Ausprobieren</b><p class="muted" style="margin:4px 0 0">${OYH[k]}</p></div>` : '';
+const oyHint = k => oyBack() && OYH[k] ? `<div class="card" style="margin:0 0 10px"><b>${k === 'quiz' ? 'Dein Quizspiel vorbereiten' : 'Zum Ausprobieren'}</b><p class="muted" style="margin:4px 0 0">${OYH[k]}</p></div>` : '';
 const OYD = { on: false };
 function oyDemoBuzz() { OYD.on = !OYD.on; rr(); }
 function toolBuzzerDemo() {
   return `${tback('Buzzer')}${oyHint('buzzer')}
-  <button onclick="oyDemoBuzz()" style="width:100%;height:160px;font-size:48px;border:none;border-radius:18px;color:#fff;background:${OYD.on ? '#2e9b57' : '#2f6fd6'}">${OYD.on ? '1' : 'Buzzer'}</button>
-  <p class="muted" style="text-align:center;margin-top:10px">${OYD.on ? 'Du warst die Erste oder der Erste. Tippe noch einmal zum Zurücksetzen.' : 'Tippe auf den Buzzer.'}</p>`;
+  <div style="display:flex;flex-direction:column;align-items:center;gap:14px;margin:18px 0">
+  <button class="bzbtn ${OYD.on ? 'go' : 'ready'}" style="width:min(78vw,300px);font-size:min(36vw,140px)" onclick="oyDemoBuzz()">${OYD.on ? '1' : ''}</button>
+  <div class="bzs" style="text-align:center">${OYD.on ? 'Du bist dran' : 'Bereit'}</div>
+  <p class="muted" style="text-align:center;margin:0">${OYD.on ? 'So sieht es aus, wenn du die oder der Erste bist. Tippe noch einmal zum Zurücksetzen.' : 'Tippe auf den Buzzer.'}</p></div>`;
 }
 function viewTool(k) {
   if (oyBack() && k === 'buzzer') return toolBuzzerDemo();
