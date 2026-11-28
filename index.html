@@ -751,7 +751,7 @@ function viewSpontan() {
   <div class="mlab">Starten</div>
   ${mrow('🔔', 'Buzzer-Raum öffnen', 'Alle spielen mit dem Handy', '#/w/buzzer')}
   ${mrow('✨', 'Neues Quiz zusammenstellen', 'Thema, Anzahl, Schwierigkeit', '', { soon: 1 })}
-  ${quizzes().filter(x => x.questions.length).map(x => mrow('▶️', esc(x.name), `${x.questions.length} Fragen · Quiz starten`, '#/quizrun/' + x.id)).join('') || mrow('📋', 'Aus meiner Quiz-Sammlung wählen', 'Lege zuerst ein Quiz an', '#/quiz')}
+  ${quizzes().filter(x => x.questions.length && !x.hidden).map(x => mrow('▶️', esc(x.name), `${x.questions.length} Fragen · Quiz starten`, '#/quizrun/' + x.id)).join('') || mrow('📋', 'Aus meiner Quiz-Sammlung wählen', 'Lege zuerst ein Quiz an', '#/quiz')}
   <div class="mlab">Wer führt durch?</div>
   ${chips('lead', [['app', 'App führt durch'], ['host', 'Ich bin Quizmaster']], 'app')}
   <div class="mlab">Spielweise</div>
@@ -798,7 +798,7 @@ function viewQuiz(r = {}) {
   const z = r.qz && getQuiz(r.qz);
   if (z && r.qq) { const q = z.questions.find(x => x.id === r.qq); if (q) return viewQEdit(z, q); }
   if (z) return viewQuizDetail(z);
-  const list = quizzes();
+  const list = quizzes().filter(x => !x.hidden);
   return `${mhead('Quiz-Sammlung')}${oyHint('quiz')}
   <div class="mlab">Meine Quiz</div>
   ${list.length ? list.map(x => mrow('📝', esc(x.name), `${x.questions.length} ${x.questions.length === 1 ? 'Frage' : 'Fragen'}`, '#/quiz/' + x.id)).join('') : '<div class="empty" style="margin:8px 0">Noch kein Quiz gespeichert.</div>'}
@@ -2030,7 +2030,7 @@ function tabEinladung(o) {
 }
 
 /* ============ Olympiaden-Raum (online): Namen antippen ============ */
-const OH = { ws: null, code: null, view: null, status: 'off', rk: '', t: null, qr: false };
+const OH = { drop: {}, chunks: {}, ws: null, code: null, view: null, status: 'off', rk: '', t: null, qr: false };
 const olyLink = o => location.href.split('#')[0] + '#/oly/' + o.room.code + '/' + encodeURIComponent(srvHost());
 const olyRoster = o => o.participants.filter(p => p.name).map(p => ({ id: p.id, name: p.name }));
 function olySendRoster(o) { const l = olyRoster(o), k = JSON.stringify(l); if (OH.ws && OH.ws.readyState === 1 && k !== OH.rk) { OH.ws.send(JSON.stringify({ t: 'roster', list: l })); OH.rk = k; } }
@@ -2041,9 +2041,28 @@ function olyConnect(o) {
   let ws; try { ws = new WebSocket(wsBase(srvHost()) + '/room/' + o.room.code + '/ws'); } catch (e) { return; }
   OH.ws = ws;
   ws.onopen = () => { OH.status = 'on'; ws.send(JSON.stringify({ t: 'hello', role: 'host', key: o.room.key })); olySendRoster(o); olyPaint(); };
-  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'host') { OH.view = m; olyPaint(); } };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'host') { OH.view = m; olyPaint(); } else if (m.t === 'dropinfo') { OH.drop[m.id] = m; if (ui.titleFor === m.id) render(); } else if (m.t === 'dropdata') oyGotChunk(m); };
   ws.onclose = () => { if (OH.ws !== ws) return; OH.ws = null; OH.status = 'off'; OH.code = null; clearTimeout(OH.t); OH.t = setTimeout(() => { const c = cur(); if (c && c.room) olyConnect(c); }, 2500); olyPaint(); };
 }
+function oyAskDrop(pid) { if (OH.ws && OH.ws.readyState === 1) OH.ws.send(JSON.stringify({ t: 'dropinfo', id: pid })); else setTimeout(() => { if (ui.titleFor === pid) oyAskDrop(pid); }, 600); }
+function oyUseCard(pid, g) {
+  const d = OH.drop[pid]; if (g.quizId && getQuiz(g.quizId)) return `<div class="card" style="margin:0 0 12px"><p style="margin:0 0 8px">✓ Dein Quiz „${esc(getQuiz(g.quizId).name)}“ wird für dieses Spiel verwendet.</p><button class="sec" onclick="oyUnuse('${g.id}')">Doch nicht verwenden</button></div>`;
+  if (!d || !d.has) return '';
+  return `<div class="card" style="margin:0 0 12px"><p style="margin:0 0 8px">Du hast ein Quiz hinterlegt: <b>${esc(d.name)}</b> (${d.qn} ${d.qn === 1 ? 'Frage' : 'Fragen'}). Soll es für dieses Spiel verwendet werden?</p><div class="row wrap"><button class="grow" onclick="oyUse('${pid}')">Ja, verwenden</button></div></div>`;
+}
+function oyUse(pid) { const o = cur(); if (!o || !OH.ws) { toast('Keine Verbindung'); return; } OH.chunks[pid] = { parts: [], n: 0 }; OH.ws.send(JSON.stringify({ t: 'dropget', id: pid })); toast('Lade Quiz …'); }
+function oyGotChunk(m) {
+  const o = cur(), c = OH.chunks[m.id]; if (!o || !c) return;
+  if (m.none) { toast('Kein Quiz hinterlegt'); return; }
+  c.parts[m.i] = m.d; c.n = m.n;
+  if (c.parts.filter(x => typeof x === 'string').length < c.n) return;
+  delete OH.chunks[m.id];
+  let z; try { z = JSON.parse(c.parts.join('')); } catch (e) { toast('Das Quiz konnte nicht gelesen werden'); return; }
+  if (!z || !Array.isArray(z.questions) || !z.questions.length) { toast('Das Quiz ist leer'); return; }
+  const g = gOf(o, m.id), nz = { id: uid(), name: String(z.name || 'Quiz').slice(0, 60), account: z.account || defAccount(), questions: z.questions, created: Date.now(), hidden: true, from: { o: o.id, pid: m.id } };
+  quizzes().push(nz); g.quizId = nz.id; ui.titleDraft = nz.name; save(); render(); toast('Quiz übernommen');
+}
+function oyUnuse(gid) { const o = cur(), g = gById(o, gid); if (!g) return; db.quizzes = quizzes().filter(x => x.id !== g.quizId); delete g.quizId; save(); render(); }
 function olyPaint() { const o = cur(), el = $('olyBox'); if (el && o) el.innerHTML = olyBoxHtml(o); }
 function olyBoxHtml(o) {
   if (!o.room) return `<div class="card"><h2>Online-Raum</h2><p class="muted">Die Teilnehmer treten per Link bei und tippen ihren Namen an. Lege vorher die Teilnehmerliste an.</p><button style="width:100%" onclick="olyCreate()" ${o.participants.length ? '' : 'disabled'}>🔗 Raum öffnen</button>${o.participants.length ? '' : '<p class="muted" style="margin:8px 0 0">Es sind noch keine Teilnehmer eingetragen.</p>'}</div>`;
@@ -2238,6 +2257,7 @@ function rankList(o) {
 
 /* ============ Austragung: Ansichten ============ */
 function viewRun(o) {
+  if (o.room) setTimeout(() => olyConnect(o), 0);
   const head = `
   <a class="back" href="#/o/${o.id}/details">‹ Zur Olympiade</a>
   <div class="row"><img class="hdrlogo" src="${LOGO}" alt=""><h2 class="grow" style="font-size:20px">${esc(o.name || 'Ohne Namen')}</h2><span class="badge">${statusLabel(o.status)}</span></div>`;
@@ -2265,7 +2285,8 @@ function runTitles(o) {
     return `<div class="card" style="text-align:center">
       <h2>Hallo ${esc(p.name)}! 👋</h2>
       <p class="muted">Gib den Titel deines Spiels ein. Er bleibt geheim, bis dein Spiel ausgelost wird. Die anderen sollen nicht mitlesen.</p>
-      <input id="gtitle" value="${esc(g.title)}" placeholder="Titel deines Spiels" maxlength="60" autocomplete="off" onkeydown="if(event.key==='Enter')saveTitle('${p.id}')">
+      ${oyUseCard(p.id, g)}
+      <input id="gtitle" value="${esc(g.title || ui.titleDraft || '')}" placeholder="Titel deines Spiels" maxlength="60" autocomplete="off" onkeydown="if(event.key==='Enter')saveTitle('${p.id}')">
       <div class="row wrap" style="margin-top:12px"><button class="grow" onclick="saveTitle('${p.id}')">Speichern</button><button class="sec grow" onclick="cancelTitle()">Abbrechen</button></div>
       <div style="margin-top:16px"><button class="danger" onclick="postponeGame('${g.id}')">Mein Spiel ist heute nicht dabei</button></div>
     </div>`;
@@ -2382,14 +2403,14 @@ async function startOlympiad() {
 async function openTitle(pid) {
   const o = cur(), p = pById(o, pid), g = gOf(o, pid);
   if (g.title && !await ask({ icon: '🙈', title: `Bist du ${p.name}?`, text: 'Dein Titel wird gleich angezeigt.', ok: `Ja, ich bin ${p.name}`, cancel: 'Zurück' })) return;
-  ui.titleFor = pid; render();
+  ui.titleFor = pid; ui.titleDraft = ''; if (o.room) { OH.drop[pid] = null; olyConnect(o); setTimeout(() => oyAskDrop(pid), 400); } render();
   setTimeout(() => { const i = $('gtitle'); if (i) { i.focus(); i.select(); } }, 50);
 }
-function cancelTitle() { ui.titleFor = null; render(); }
+function cancelTitle() { ui.titleFor = null; ui.titleDraft = ''; render(); }
 function saveTitle(pid) {
   const o = cur(), g = gOf(o, pid), v = ($('gtitle').value || '').trim();
   if (!v) { toast('Bitte einen Titel eingeben'); return; }
-  g.title = v; g.state = 'ready'; save(); ui.titleFor = null; render();
+  g.title = v; g.state = 'ready'; save(); ui.titleFor = null; ui.titleDraft = ''; render();
   toast('Gespeichert – bitte Gerät weitergeben');
 }
 function postponeGame(gid) {
