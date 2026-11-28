@@ -115,7 +115,7 @@ export function submitAnswer(st, rid, v) {
 export function dropStart(st, rid, m) {
   if (!rid || !m) return 'bad';
   const n = Number(m.n), bytes = Number(m.bytes);
-  if (!Number.isInteger(n) || n < 1 || n > Math.ceil(DROP_MAX / CHUNK_MAX) + 1 || !(bytes > 0) || bytes > DROP_MAX) return 'bad';
+  if (!Number.isInteger(n) || n < 1 || n > 130 || !(bytes > 0) || bytes > DROP_MAX) return 'bad';
   const name = clean(m.name, 60); if (!name) return 'bad';
   st.drops = st.drops || {};
   st.drops[rid] = { name, bytes, n, qn: Math.max(0, Math.min(999, Number(m.qn) || 0)), have: [], at: Date.now(), done: false };

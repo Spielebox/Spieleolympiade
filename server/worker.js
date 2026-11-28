@@ -83,7 +83,7 @@ export class Room extends DurableObject {
   }
 
   async dropClear(rid) {
-    const x = this.st.drops && this.st.drops[rid]; const n = x ? x.n : 80;
+    const x = this.st.drops && this.st.drops[rid]; const n = x ? x.n : 140;
     const keys = []; for (let i = 0; i < n; i++) keys.push("d:" + rid + ":" + i);
     await this.ctx.storage.delete(keys);
     L.dropDel(this.st, rid);
