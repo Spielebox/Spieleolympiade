@@ -632,6 +632,8 @@ function render() {
 window.addEventListener('hashchange', e => {
   try {
     const r = route(), prev = new URL(e.oldURL).hash || '#/';
+    if (prev.startsWith('#/oly/') && !location.hash.startsWith('#/oly/')) sessionStorage.setItem('spieleolympiade.oyback', prev);
+    else if (location.hash.startsWith('#/oly/') || location.hash === '#/' || location.hash === '') sessionStorage.removeItem('spieleolympiade.oyback');
     if (r.page === 'qrun' && !/^#\/(quizrun|w\/|buzz|stage)/.test(prev)) sessionStorage.setItem('spieleolympiade.qback.' + r.qz, prev);
   } catch (x) {}
   render(); window.scrollTo(0, 0);
@@ -678,7 +680,8 @@ const mrow = (ic, t, sub, href, o = {}) => {
   const inner = `<span class="mic">${ic}</span><span class="g"><b>${t}</b><span class="ms">${sub}</span></span>${o.soon ? '<span class="ms">bald</span>' : '<span class="ar">›</span>'}`;
   return o.soon ? `<div class="mrow soon">${inner}</div>` : `<a class="mrow${o.pri ? ' pri' : ''}" href="${href}">${inner}</a>`;
 };
-const mhead = t => `<a class="back" href="#/">‹ Hauptmenü</a><div class="mhead"><img class="hdrlogo" src="${LOGO}" alt=""><h2>${t}</h2></div>`;
+const oyBack = () => { try { return sessionStorage.getItem('spieleolympiade.oyback'); } catch (e) { return null; } };
+const mhead = t => `<a class="back" href="${esc(oyBack() || '#/')}">‹ ${oyBack() ? 'Deine Olympiade' : 'Hauptmenü'}</a><div class="mhead"><img class="hdrlogo" src="${LOGO}" alt=""><h2>${t}</h2></div>`;
 
 function viewHome() {
   const run = db.olympiads.find(o => o.status === 'running' || o.status === 'paused');
@@ -692,6 +695,7 @@ function viewHome() {
     <h1>Spieleolympiade</h1>
     <p>Jeder bringt ein Spiel mit. Einer gewinnt alles.</p>
   </div>
+  ${(() => { try { const j = JSON.parse(lsGet(OLY_KEY, 'null')); return j && j.code ? `<a class="mhero" href="#/oly/${esc(j.code)}/${encodeURIComponent(j.srv || '')}"><span class="mic">🎟️</span><span><b>Deine Olympiade</b><span class="ms">Angemeldet als ${esc(j.name)}</span></span></a>` : ''; } catch (e) { return ''; } })()}
   <a class="mhero" href="#/olympiaden"><span class="mic">🏆</span><span><b>Spieleolympiade</b><span class="ms">${sub}</span></span></a>
   <div class="mgrid">
     <a class="mt" href="#/spontan"><span class="mic">⚡</span><b>Spontanquiz</b><span class="ms">Sofort losspielen</span></a>
@@ -795,7 +799,7 @@ function viewQuiz(r = {}) {
   if (z && r.qq) { const q = z.questions.find(x => x.id === r.qq); if (q) return viewQEdit(z, q); }
   if (z) return viewQuizDetail(z);
   const list = quizzes();
-  return `${mhead('Quiz-Sammlung')}
+  return `${mhead('Quiz-Sammlung')}${oyHint('quiz')}
   <div class="mlab">Meine Quiz</div>
   ${list.length ? list.map(x => mrow('📝', esc(x.name), `${x.questions.length} ${x.questions.length === 1 ? 'Frage' : 'Fragen'}`, '#/quiz/' + x.id)).join('') : '<div class="empty" style="margin:8px 0">Noch kein Quiz gespeichert.</div>'}
   <div class="mlab">Neu</div>
@@ -1602,7 +1606,7 @@ function viewWerkzeuge() {
   ${mrow('🔔', 'Buzzer-Raum', 'Mit QR-Code, braucht den Server', '#/w/buzzer')}`;
 }
 function toolCtx() { const r = route(); if (r.o && r.tab === 'w') { const o = r.o; return { o, g: o.current ? gById(o, o.current) : null }; } return null; }
-const tback = t => { const c = toolCtx(); if (!c && QZ.from && QZ.id) return `<a class="back" href="#/quizrun/${QZ.id}">‹ Zurück zum Quiz</a><div class="mhead"><h2>${t}</h2></div>`; return `<a class="back" href="${c ? '#/o/' + c.o.id + '/run' : '#/werkzeuge'}">‹ ${c ? 'Zurück zum Spiel' : 'Werkzeuge'}</a><div class="mhead"><h2>${t}</h2></div>`; };
+const tback = t => { const c = toolCtx(); if (!c && QZ.from && QZ.id) return `<a class="back" href="#/quizrun/${QZ.id}">‹ Zurück zum Quiz</a><div class="mhead"><h2>${t}</h2></div>`; return `<a class="back" href="${c ? '#/o/' + c.o.id + '/run' : esc(oyBack() || '#/werkzeuge')}">‹ ${c ? 'Zurück zum Spiel' : oyBack() ? 'Deine Olympiade' : 'Werkzeuge'}</a><div class="mhead"><h2>${t}</h2></div>`; };
 /* Personen: in der Olympiade die Teilnehmer (Spielleiter markiert), sonst alle Spieler */
 function people() {
   const c = toolCtx();
@@ -1613,7 +1617,27 @@ function olyStore() { const c = toolCtx(); TS.oly = TS.oly || {}; return TS.oly[
 function PT() { const c = toolCtx(); if (!c) return TS; const st = olyStore(); if (!st.pts) st.pts = people().filter(x => !x.owner).map(x => ({ id: uid(), name: x.name, pid: x.pid, part: x.key, p: 0 })); return st; }
 function LS() { const c = toolCtx(); if (!c) { TS.lot.off = TS.lot.off || []; return TS.lot; } const st = olyStore(); if (!st.lot) st.lot = { sel: people().map(x => x.name), extra: [], off: people().filter(x => x.owner).map(x => x.name) }; return st.lot; }
 
+const OYH = {
+  buzzer: 'Wer zuerst drückt, ist dran. Gut für Quizfragen oder Schnelligkeitsspiele. Probiere es unten mit dem Test-Buzzer aus.',
+  timer: 'Zählt von einer Zeit herunter, zum Beispiel 60 Sekunden für eine Runde. Probiere ihn gleich aus.',
+  stoppuhr: 'Misst die Zeit hoch, zum Beispiel wer eine Aufgabe am schnellsten schafft. Mit Rundenzeiten.',
+  punkte: 'Hält fest, wer wie viele Punkte hat, mit Plus und Minus. Zum Ausprobieren, ohne Verbindung zur Olympiade.',
+  quiz: 'Baue Fragen mit Antworten, Bildern oder Schätzfragen. Dein Quiz bleibt erst einmal nur bei dir.'
+};
+const oyHint = k => oyBack() && OYH[k] ? `<div class="card" style="margin:0 0 10px"><b>Zum Ausprobieren</b><p class="muted" style="margin:4px 0 0">${OYH[k]}</p></div>` : '';
+const OYD = { on: false };
+function oyDemoBuzz() { OYD.on = !OYD.on; rr(); }
+function toolBuzzerDemo() {
+  return `${tback('Buzzer')}${oyHint('buzzer')}
+  <button onclick="oyDemoBuzz()" style="width:100%;height:160px;font-size:48px;border:none;border-radius:18px;color:#fff;background:${OYD.on ? '#2e9b57' : '#2f6fd6'}">${OYD.on ? '1' : 'Buzzer'}</button>
+  <p class="muted" style="text-align:center;margin-top:10px">${OYD.on ? 'Du warst die Erste oder der Erste. Tippe noch einmal zum Zurücksetzen.' : 'Tippe auf den Buzzer.'}</p>`;
+}
 function viewTool(k) {
+  if (oyBack() && k === 'buzzer') return toolBuzzerDemo();
+  const h = viewTool0(k);
+  return oyBack() && OYH[k] ? h.replace('</h2></div>', '</h2></div>' + oyHint(k)) : h;
+}
+function viewTool0(k) {
   return { timer: toolTimer, stoppuhr: toolStoppuhr, punkte: toolPunkte, los: toolLos, buzzer: toolBuzzer }[k]?.() || viewWerkzeuge();
 }
 
@@ -1996,6 +2020,7 @@ async function olyEnd() {
 }
 
 /* --- Teilnehmer: Name antippen, Spielerseite --- */
+const OLY_KEY = 'spieleolympiade.oly';
 const OY = { ws: null, code: '', srv: '', st: null, err: '', stopped: true, retry: 0, rt: null };
 function viewOly(code, srv) {
   setTimeout(() => { if (OY.code !== code || (!OY.ws && OY.stopped)) oyStart(code, srv); oyPaint(); }, 0);
@@ -2017,18 +2042,20 @@ function oyRelease() { oySend({ t: 'release' }); }
 function oyPaint() { const el = $('oy'); if (el) el.innerHTML = oyHtml(); }
 function oyHtml() {
   const head = `<a class="back" href="#/">‹ Hauptmenü</a>`;
-  if (OY.err) return head + `<div class="card"><p>${esc(OY.err)}</p></div>`;
+  if (OY.err) { try { lsSet(OLY_KEY, null); } catch (e) {} return head + `<div class="card"><p>${esc(OY.err)}</p></div>`; }
   const S = OY.st; if (!S) return head + '<div class="empty">Verbinde …</div>';
   const me = S.roster.find(r => r.mine);
+  try { if (me) lsSet(OLY_KEY, JSON.stringify({ code: OY.code, srv: OY.srv, name: me.name })); else lsSet(OLY_KEY, null); } catch (e) {}
   if (!me) return head + `<div class="mhead"><h2>Wer bist du?</h2></div><p class="muted">Tippe auf deinen Namen.</p>` + S.roster.map(r => r.taken ? `<div class="mrow" style="opacity:.45"><span class="grow">${esc(r.name)}</span><span class="muted">vergeben</span></div>` : `<button class="sec" style="width:100%;margin-bottom:6px;text-align:left" onclick="oyClaim('${r.id}')">${esc(r.name)}</button>`).join('') || '<div class="empty">Noch keine Namen eingetragen.</div>';
   return head + `<div class="mhead"><h2>Hallo ${esc(me.name)}</h2></div>
-  <div class="card" style="border-color:var(--gold,#d9b45a)"><h3 style="margin-top:0">Halte dein Spiel geheim</h3><p style="margin:0">Den Namen deines Spiels trägst du erst am Olympiade-Tag ein, geheim und vor dem Start. Dann wird ausgelost, und alle erfahren es erst, wenn du dran bist.</p></div>
-  <div class="card"><h3 style="margin-top:0">Du leitest ein Spiel</h3><p class="muted" style="margin-top:0">Jeder leitet in dieser Olympiade genau eins. Dafür bekommst du in diesem Spiel keine Punkte.</p>
+  <div class="card"><h3 style="margin-top:0">Bereite ein Spiel vor</h3><p class="muted" style="margin-top:0">Jeder leitet in dieser Olympiade genau ein Spiel. Dafür bekommst du in diesem Spiel keine Punkte.</p>
   <h3>Worauf du achten solltest</h3><ul class="rules"><li>Alles ist erlaubt: Geschicklichkeit, Glück, Kartenspiel, Quiz und mehr</li><li>Es braucht klare erste drei Plätze</li><li>Überlege dir ein Stechen für den Gleichstand</li></ul></div>
+  <div class="card" style="border-color:var(--gold,#d9b45a)"><h3 style="margin-top:0">Halte dein Spiel geheim</h3><p style="margin:0">Den Namen deines Spiels trägst du erst am Olympiade-Tag ein, geheim und vor dem Start. Dann wird ausgelost, und alle erfahren es erst, wenn du dran bist.</p></div>
   <div class="mlab">Werkzeuge, wenn du magst</div>
   ${mrow('🔔', 'Buzzer', 'Wer ist zuerst?', '#/w/buzzer')}
   ${mrow('⏱️', 'Timer', 'Zeit herunterzählen', '#/w/timer')}
   ${mrow('⏲️', 'Stoppuhr', 'Zeit nehmen, Runden', '#/w/stoppuhr')}
+  ${mrow('🔢', 'Punkteliste', 'Punkte festhalten', '#/w/punkte')}
   ${mrow('❓', 'Quizgenerator', 'Quiz bauen', '#/quiz')}
   <p class="muted" style="margin-top:12px">Nur du siehst diese Seite. <a href="#" onclick="oyRelease();return false">Das bin ich nicht</a></p>`;
 }
