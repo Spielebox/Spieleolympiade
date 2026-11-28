@@ -836,7 +836,55 @@ function viewQuizDetail(z) {
       <input inputmode="decimal" value="${esc(A.factor)}" oninput="qzNum('factor',this.value)">
       <p class="muted" id="qzEx" style="margin:10px 0 0">${exampleHtml(z)}</p>
     </div>
-  </div>`;
+  </div>${oyDropCard(z)}`;
+}
+/* --- Quiz geheim für die Olympiade hinterlegen --- */
+const DROP_CHARS = 5000000, DROP_PART = 50000;
+const oyJoined = () => { try { const j = JSON.parse(lsGet(OLY_KEY, 'null')); return j && j.code ? j : null; } catch (e) { return null; } };
+function oyDropCard(z) {
+  const j = oyJoined(); if (!j) return '';
+  const mine = z.oly && z.oly.code === j.code ? z.oly : null;
+  return `<div class="mlab">Olympiade</div><div class="card">
+  <p class="muted" style="margin:0 0 10px">Hinterlege dieses Quiz geheim für deine Olympiade. Niemand sieht, dass du etwas hinterlegt hast. Erst wenn du am Olympiade-Tag deinen Spielnamen einträgst, wird gefragt, ob dein Quiz gespielt werden soll.</p>
+  ${mine ? `<p style="margin:0 0 10px">✓ Hinterlegt am ${esc(new Date(mine.at).toLocaleString('de-DE', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }))}. Änderst du das Quiz, hinterlege es noch einmal.</p>` : ''}
+  <div class="row wrap"><button class="grow" onclick="oyDrop('${z.id}')">${mine ? 'Erneut hinterlegen' : 'Geheim hinterlegen'}</button>${mine ? `<button class="sec grow" onclick="oyDropDel('${z.id}')">Zurückziehen</button>` : ''}</div></div>`;
+}
+function oyOnce(j, start, done) {
+  return new Promise((res, rej) => {
+    let ws; try { ws = new WebSocket(wsBase(j.srv || srvHost()) + '/room/' + j.code + '/ws'); } catch (e) { rej('net'); return; }
+    let started = false; const end = (f, v) => { clearTimeout(to); try { ws.close(); } catch (e) {} f(v); };
+    const to = setTimeout(() => end(rej, 'timeout'), 25000);
+    ws.onopen = () => ws.send(JSON.stringify({ t: 'hello', role: 'player', dev: devId() }));
+    ws.onerror = () => end(rej, 'net');
+    ws.onmessage = e => {
+      let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+      if (m.t === 'error') { end(rej, m.e); return; }
+      if (m.t !== 'state') return;
+      if (!started) { started = true; if (!m.me) { end(rej, 'noname'); return; } start(ws); }
+      else if (done(m)) end(res, m);
+    };
+  });
+}
+async function oyDrop(id) {
+  const z = getQuiz(id), j = oyJoined(); if (!z || !j) return;
+  if (z.questions.length < 1) { toast('Das Quiz hat noch keine Fragen'); return; }
+  const payload = JSON.stringify({ v: 1, name: z.name, account: z.account, questions: z.questions });
+  if (payload.length > DROP_CHARS) { toast('Das Quiz ist zu groß (über 5 MB). Nimm kleinere Bilder.'); return; }
+  const parts = []; for (let i = 0; i < payload.length; i += DROP_PART) parts.push(payload.slice(i, i + DROP_PART));
+  toast('Lade hoch …');
+  try {
+    await oyOnce(j, ws => {
+      ws.send(JSON.stringify({ t: 'dropstart', name: z.name, n: parts.length, bytes: payload.length, qn: z.questions.length }));
+      parts.forEach((d, i) => ws.send(JSON.stringify({ t: 'dropchunk', i, d })));
+    }, m => m.drop && m.drop.has && m.drop.bytes === payload.length);
+    z.oly = { code: j.code, at: Date.now(), bytes: payload.length }; save(); rr(); toast('Geheim hinterlegt');
+  } catch (e) { toast(e === 'noname' ? 'Du bist in der Olympiade nicht mehr angemeldet' : 'Hochladen nicht gelungen. Versuche es noch einmal.'); }
+}
+async function oyDropDel(id) {
+  const z = getQuiz(id), j = oyJoined(); if (!z || !j) return;
+  if (!await ask({ icon: '↩️', title: 'Quiz zurückziehen?', text: 'Die hinterlegte Kopie wird gelöscht. Dein Quiz bleibt bei dir.', ok: 'Zurückziehen', cancel: 'Abbrechen' })) return;
+  try { await oyOnce(j, ws => ws.send(JSON.stringify({ t: 'dropdel' })), m => m.drop && !m.drop.has); delete z.oly; save(); rr(); toast('Zurückgezogen'); }
+  catch (e) { toast('Das hat nicht geklappt. Versuche es noch einmal.'); }
 }
 function viewQEdit(z, q) {
   const prob = qProblem(q), m = q.media;
