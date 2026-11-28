@@ -1044,7 +1044,7 @@ function viewQuizRun(id) {
   setTimeout(() => { if (BZ.code && !BZ.ws && BZ.status !== 'connecting') bzConnect(); else if (BZ.ws) { bzSendRoster(); qzStageSync(); } }, 0);
   const tabs = `<div class="qtabs">${QTABS.map(([k, ic, l]) => `<button class="${d.tab === k ? 'on' : ''}" onclick="qzTab('${k}')"><span>${ic}</span><small>${l}</small></button>`).join('')}</div>`;
   let bk = '#/quiz/' + z.id, bl = z.name;
-  try { const b = sessionStorage.getItem('spieleolympiade.qback.' + z.id); if (b && b !== location.hash) { bk = b; bl = b === '#/' || b === '#' ? 'Start' : b.startsWith('#/spontan') ? 'Spontanquiz' : b === '#/quiz' ? 'Quiz-Sammlung' : b.startsWith('#/quiz/') ? (getQuiz(b.split('/')[2]) || z).name : 'Zurück'; } } catch (e) {}
+  try { const b = sessionStorage.getItem('spieleolympiade.qback.' + z.id); if (b && b !== location.hash) { bk = b; bl = b === '#/' || b === '#' ? 'Start' : b.startsWith('#/o/') ? 'Zurück zum Spiel' : b.startsWith('#/spontan') ? 'Spontanquiz' : b === '#/quiz' ? 'Quiz-Sammlung' : b.startsWith('#/quiz/') ? (getQuiz(b.split('/')[2]) || z).name : 'Zurück'; } } catch (e) {}
   const head = `<a class="back" href="${esc(bk)}">‹ ${esc(bl)}</a>`;
   let body = '';
   if (!n) body = '<div class="empty">Dieses Quiz hat noch keine Fragen.</div>';
@@ -2364,6 +2364,7 @@ function runGame(o) {
       <div class="gtitle">${esc(g.title)}</div>
       <div>Spielleiter: <b>${esc(owner.name)}</b></div>
     </div>
+    ${g.quizId && getQuiz(g.quizId) ? `<div class="card"><h2 style="margin-top:0">Quiz von ${esc(owner.name)}</h2><p class="muted" style="margin:0 0 10px">${getQuiz(g.quizId).questions.length} Fragen. ${esc(owner.name)} stellt die Fragen, ${esc(owner.name)} bekommt in diesem Spiel keine Punkte.</p><a class="btnlink" style="display:block;text-align:center" href="#/quizrun/${g.quizId}">▶ Quiz starten</a></div>` : ''}
     <div class="card"><div class="mhead2" style="margin:0;cursor:pointer" onclick="TOOLopen=!TOOLopen;rr()"><h2 style="margin:0">Werkzeuge</h2><span class="tg${TOOLopen ? ' open' : ''}">${TOOLopen ? 'Zuklappen ▴' : 'Öffnen ▾'}</span></div>
       <div class="mgrid" style="margin:12px 0 0;${TOOLopen ? '' : 'display:none'}">
         <a class="mt" style="min-height:84px" href="#/o/${o.id}/w/timer"><span class="mic">⏲️</span><b>Timer</b></a>
