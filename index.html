@@ -1279,8 +1279,14 @@ function qzStageSync() {
 const STG = { ws: null, code: '', srv: '', s: null, tm: null, img: null, stopped: true, retry: 0, rt: null, wl: null, tick: null, err: '' };
 function viewStage(code, srv) {
   setTimeout(() => { if (STG.code !== code || (!STG.ws && STG.stopped)) stgStart(code, srv); stgPaint(); }, 0);
-  return '<div id="stg"></div>';
+  let sos = ''; try { sos = sessionStorage.getItem('spieleolympiade.stageback') ? '<div id="stgSOS" style="position:fixed;right:0;bottom:0;width:72px;height:72px;z-index:50" onpointerdown="stSosDown()" onpointerup="stSosUp()" onpointerleave="stSosUp()" onpointercancel="stSosUp()"></div>' : ''; } catch (e) {}
+  return '<div id="stg"></div>' + sos;
 }
+let SOS_T = null;
+function stSosDown() { clearTimeout(SOS_T); SOS_T = setTimeout(async () => {
+  if (await ask({ icon: '⚠️', title: 'Notfall', text: 'Zur Verwaltung wechseln? Das Spiel läuft weiter, du kannst es dort beenden.', ok: 'Zur Verwaltung', cancel: 'Weiter im Spiel' })) { let b = null; try { b = sessionStorage.getItem('spieleolympiade.stageback'); sessionStorage.removeItem('spieleolympiade.stageback'); } catch (e) {} if (b) location.hash = b; }
+}, 900); }
+function stSosUp() { clearTimeout(SOS_T); }
 function stgStart(code, srv) {
   stgStop(); STG.code = code; STG.srv = cleanHost(srv) || srvHost(); STG.stopped = false; STG.s = null; STG.tm = null; STG.img = null; STG.err = ''; STG.retry = 0;
   stgConnect(); STG.tick = setInterval(stgTick, 250);
@@ -1452,15 +1458,16 @@ const isBzRoute = () => { const r = route(); return (r.page === 'w' && r.sub ===
 const paintBz = () => { if (!isBzRoute()) return; const r = route(); const el = r.page === 'qrun' && QZ.d && QZ.d.tab === 'ueber' && $('qrLive'); if (el) { el.innerHTML = qzLive(); qzStageSync(); } else rr(); };
 function bzRoster() { return people().filter(x => !x.owner).map(x => { const pl = db.players.find(p => p.id === x.pid); return { id: x.key, name: x.name, emoji: (pl && pl.emoji) || '', color: (pl && pl.color) || '' }; }); }
 function bzSend(o) { if (BZ.ws && BZ.ws.readyState === 1) { BZ.ws.send(JSON.stringify(o)); return true; } return false; }
-function bzSendRoster(force) { const list = bzRoster(), k = JSON.stringify(list); if (force || k !== BZ.rosterKey) { if (bzSend({ t: 'roster', list })) BZ.rosterKey = k; } }
+function bzLeaderOff() { BZ.closing = true; try { BZ.ws && BZ.ws.close(); } catch (e) {} clearTimeout(BZ.t); Object.assign(BZ, { ws: null, code: null, srv: null, key: null, view: null, leader: false, status: 'off', retry: 0, rosterKey: '' }); }
+function bzSendRoster(force) { if (BZ.leader) return; const list = bzRoster(), k = JSON.stringify(list); if (force || k !== BZ.rosterKey) { if (bzSend({ t: 'roster', list })) BZ.rosterKey = k; } }
 function bzForget(msg) { BZ.closing = true; try { BZ.ws && BZ.ws.close(); } catch (e) {} clearTimeout(BZ.t); Object.assign(BZ, { ws: null, code: null, key: null, view: null, status: 'off', retry: 0, rosterKey: '', everOn: false, err: msg || '' }); lsSet(ROOM_KEY, null); }
 function bzConnect() {
   if (!BZ.code || BZ.ws) return;
   BZ.closing = false; BZ.status = 'connecting'; let opened = false;
-  let ws; try { ws = new WebSocket(wsBase(srvHost()) + '/room/' + BZ.code + '/ws'); } catch (e) { return; }
+  let ws; try { ws = new WebSocket(wsBase(BZ.srv || srvHost()) + '/room/' + BZ.code + '/ws'); } catch (e) { return; }
   BZ.ws = ws;
-  ws.onopen = () => { opened = true; BZ.everOn = true; BZ.status = 'on'; BZ.retry = 0; ws.send(JSON.stringify({ t: 'hello', role: 'host', key: BZ.key })); BZ.rosterKey = ''; bzSendRoster(true); paintBz(); };
-  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'host') { BZ.view = m; paintBz(); } else if (m.t === 'error' && m.e === 'key') { bzForget('Raum gehört nicht mehr zu diesem Gerät.'); paintBz(); } };
+  ws.onopen = () => { opened = true; BZ.everOn = true; BZ.status = 'on'; BZ.retry = 0; ws.send(JSON.stringify(BZ.leader ? { t: 'hello', role: 'player', dev: devId() } : { t: 'hello', role: 'host', key: BZ.key })); BZ.rosterKey = ''; bzSendRoster(true); paintBz(); };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (BZ.leader && m.t === 'state' && !m.game) { const c = BZ.code, sv = BZ.srv; bzLeaderOff(); location.hash = '#/oly/' + c + '/' + encodeURIComponent(sv); return; } if (m.t === 'host') { BZ.view = m; if (BZ.leader && !m.game) { const c = BZ.code, sv = BZ.srv; bzLeaderOff(); location.hash = '#/oly/' + c + '/' + encodeURIComponent(sv); return; } paintBz(); } else if (m.t === 'error' && m.e === 'key') { bzForget('Raum gehört nicht mehr zu diesem Gerät.'); paintBz(); } };
   ws.onclose = () => {
     BZ.ws = null; BZ.status = 'off';
     if (BZ.closing || !BZ.code) { paintBz(); return; }
@@ -1556,6 +1563,7 @@ function pbPress(ev) {
 }
 function pbPaint() {
   const el = $('bz'); if (!el) return; const s = PB.state;
+  if (s && s.kind === 'oly' && !s.game && PB.code) { location.hash = '#/oly/' + PB.code + '/' + encodeURIComponent(PB.srv || srvHost()); return; }
   const dot = `<span class="bzdot${PB.ws && PB.ws.readyState === 1 ? '' : ' off'}"></span>`;
   if (!s) { el.innerHTML = `<div class="bzc"><h2>${PB.err ? 'Hoppla' : 'Verbinde …'}</h2><p class="muted">${esc(PB.err || 'Einen Moment bitte.')}</p></div>`; return; }
   if (!s.me) {
@@ -2040,10 +2048,28 @@ function olyConnect(o) {
   OH.code = o.room.code; OH.status = 'connecting'; OH.rk = ''; OH.view = null;
   let ws; try { ws = new WebSocket(wsBase(srvHost()) + '/room/' + o.room.code + '/ws'); } catch (e) { return; }
   OH.ws = ws;
-  ws.onopen = () => { OH.status = 'on'; ws.send(JSON.stringify({ t: 'hello', role: 'host', key: o.room.key })); olySendRoster(o); olyPaint(); };
-  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'host') { OH.view = m; olyPaint(); } else if (m.t === 'dropinfo') { OH.drop[m.id] = m; if (ui.titleFor === m.id) render(); } else if (m.t === 'dropdata') oyGotChunk(m); };
+  ws.onopen = () => { OH.status = 'on'; OH.prepKey = null; ws.send(JSON.stringify({ t: 'hello', role: 'host', key: o.room.key })); olySendRoster(o); olySync(o); olyPaint(); };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'host') { const g0 = !!(OH.view && OH.view.game); OH.view = m; olyPaint(); olySync(cur());
+    if (!g0 && m.game && route().tab === 'run') { try { sessionStorage.setItem('spieleolympiade.stageback', location.hash); } catch (x) {} location.hash = '#/stage/' + OH.code + '/' + encodeURIComponent(srvHost()); }
+    else if (g0 && !m.game) { let b = null; try { b = sessionStorage.getItem('spieleolympiade.stageback'); } catch (x) {} if (b && route().page === 'stage') { sessionStorage.removeItem('spieleolympiade.stageback'); location.hash = b; } else if (route().tab === 'run') rr(); }
+    else if (route().tab === 'run' && !!(m.prep) !== !!(g0 === null)) rr(); } else if (m.t === 'dropinfo') { OH.drop[m.id] = m; if (ui.titleFor === m.id) render(); } else if (m.t === 'dropdata') oyGotChunk(m); };
   ws.onclose = () => { if (OH.ws !== ws) return; OH.ws = null; OH.status = 'off'; OH.code = null; clearTimeout(OH.t); OH.t = setTimeout(() => { const c = cur(); if (c && c.room) olyConnect(c); }, 2500); olyPaint(); };
 }
+function olySync(o) {
+  if (!o || !o.room || !OH.ws || OH.ws.readyState !== 1) return;
+  const g = o.current ? gById(o, o.current) : null, key = g ? g.id + ':' + (g.quizId || '') : '';
+  if (OH.prepKey === key) return; OH.prepKey = key;
+  OH.ws.send(JSON.stringify(g ? { t: 'gameprep', id: g.ownerId, title: g.title, quiz: !!(g.quizId && getQuiz(g.quizId)) } : { t: 'gameprep', id: null }));
+}
+function olyGameBtn(o, g, owner) {
+  const v = OH.view, on = v && v.game;
+  if (!o.room) return '<p class="muted">Öffne den Online-Raum, damit ' + esc(owner.name) + ' das Spiel leiten kann.</p>';
+  if (on) return `<p style="margin:0 0 8px">✓ ${esc(owner.name)} leitet das Spiel.</p><button class="sec" style="width:100%" onclick="olyGameEnd()">Spiel beenden</button>`;
+  if (v && v.prep) return `<p style="margin:0">${esc(owner.name)} sieht jetzt „Du bist dran“ und startet das Spiel selbst. Das iPad wechselt dann zur Bühne.</p>`;
+  return '<p class="muted" style="margin:0">Verbinde mit dem Raum …</p>';
+}
+function olyGameStartOld(gid) { const o = cur(), g = gById(o, gid); if (!OH.ws || OH.ws.readyState !== 1) { toast('Keine Verbindung'); return; } OH.ws.send(JSON.stringify({ t: 'gamestart', id: g.ownerId, title: g.title })); }
+function olyGameEnd() { if (OH.ws && OH.ws.readyState === 1) OH.ws.send(JSON.stringify({ t: 'gameend' })); }
 function oyAskDrop(pid) { if (OH.ws && OH.ws.readyState === 1) OH.ws.send(JSON.stringify({ t: 'dropinfo', id: pid })); else setTimeout(() => { if (ui.titleFor === pid) oyAskDrop(pid); }, 600); }
 function oyUseCard(pid, g) {
   const d = OH.drop[pid]; if (g.quizId && getQuiz(g.quizId)) return `<div class="card" style="margin:0 0 12px"><p style="margin:0 0 8px">✓ Dein Quiz „${esc(getQuiz(g.quizId).name)}“ wird für dieses Spiel verwendet.</p><button class="sec" onclick="oyUnuse('${g.id}')">Doch nicht verwenden</button></div>`;
@@ -2102,10 +2128,36 @@ function oyConnect() {
   let ws; try { ws = new WebSocket(wsBase(OY.srv) + '/room/' + OY.code + '/ws'); } catch (e) { OY.err = 'Ungültige Serveradresse'; oyPaint(); return; }
   OY.ws = ws; let opened = false;
   ws.onopen = () => { opened = true; OY.retry = 0; OY.err = ''; ws.send(JSON.stringify({ t: 'hello', role: 'player', dev: devId() })); oyPaint(); };
-  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'state') { OY.st = m; OY.err = ''; oyPaint(); } else if (m.t === 'error' && m.e === 'taken') toast('Dieser Name ist schon vergeben'); };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } if (m.t === 'state') { OY.st = m; OY.err = ''; if (OY.go && m.game && m.game.mine) { const k = OY.go; OY.go = null; setTimeout(() => (k.mode === 'free' ? oyLeadFree() : k.mode === 'pick' ? oyLeadGo(k.id) : oyLead()), 0); } if (m.game && !m.game.mine && m.roster.some(r => r.mine) && location.hash.startsWith('#/oly/')) { location.hash = '#/buzz/' + OY.code + '/' + encodeURIComponent(OY.srv); return; } oyPaint(); } else if (m.t === 'dropdata') oyLeadChunk(m); else if (m.t === 'error' && m.e === 'taken') toast('Dieser Name ist schon vergeben'); };
   ws.onclose = () => { OY.ws = null; if (OY.stopped) return; if (!opened && ++OY.retry >= 3) { OY.err = 'Raum nicht gefunden oder Server nicht erreichbar.'; oyPaint(); return; } OY.rt = setTimeout(oyConnect, Math.min(4000, 800 * (OY.retry + 1))); oyPaint(); };
 }
 const oySend = o => { if (OY.ws && OY.ws.readyState === 1) { OY.ws.send(JSON.stringify(o)); return true; } toast('Keine Verbindung'); return false; };
+const OYL = { parts: [], n: 0 };
+function oyBegin(mode, id) { OY.go = { mode, id }; if (!oySend({ t: 'leadstart' })) OY.go = null; }
+function oyLeadFree() {
+  let f = quizzes().find(q => q.from && q.from.free);
+  if (!f) { f = { id: uid(), name: 'Freies Spiel', account: defAccount(), questions: [], created: Date.now(), hidden: true, from: { free: true } }; quizzes().push(f); save(); }
+  oyLeadGo(f.id);
+}
+function oyLead() { toast('Hole dein Quiz …'); oySend({ t: 'dropmine' }); }
+function oyLeadChunk(m) {
+  if (m.none) { toast('Du hast kein Quiz hinterlegt. Wähle eines von diesem Handy.'); OY.pick = true; oyPaint(); return; }
+  OYL.parts[m.i] = m.d; OYL.n = m.n;
+  if (OYL.parts.filter(x => typeof x === 'string').length < OYL.n) return;
+  const txt = OYL.parts.join(''); OYL.parts = [];
+  let z; try { z = JSON.parse(txt); } catch (e) { toast('Das Quiz konnte nicht gelesen werden'); return; }
+  if (!z || !Array.isArray(z.questions) || !z.questions.length) { toast('Das Quiz ist leer'); return; }
+  const old = quizzes().find(q => q.from && q.from.lead === OY.code);
+  const nz = { id: old ? old.id : uid(), name: String(z.name || 'Quiz').slice(0, 60), account: z.account || defAccount(), questions: z.questions, created: Date.now(), hidden: true, from: { lead: OY.code } };
+  if (old) Object.assign(old, nz); else quizzes().push(nz);
+  save(); oyLeadGo(nz.id);
+}
+function oyLeadGo(id) {
+  if (!getQuiz(id)) return;
+  if (BZ.ws) { try { BZ.closing = true; BZ.ws.close(); } catch (e) {} BZ.ws = null; }
+  Object.assign(BZ, { code: OY.code, srv: OY.srv, leader: true, key: null, view: null, everOn: false, rosterKey: '', status: 'off', retry: 0, closing: false });
+  location.hash = '#/quizrun/' + id; setTimeout(bzConnect, 50);
+}
 function oyClaim(id) { oySend({ t: 'claim', id }); }
 function oyRelease() { oySend({ t: 'release' }); }
 function oyPaint() { const el = $('oy'); if (el) el.innerHTML = oyHtml(); }
@@ -2116,6 +2168,16 @@ function oyHtml() {
   const me = S.roster.find(r => r.mine);
   try { if (me) lsSet(OLY_KEY, JSON.stringify({ code: OY.code, srv: OY.srv, name: me.name })); else lsSet(OLY_KEY, null); } catch (e) {}
   if (!me) return head + `<div class="mhead"><h2>Wer bist du?</h2></div><p class="muted">Tippe auf deinen Namen.</p>` + S.roster.map(r => r.taken ? `<div class="mrow" style="opacity:.45"><span class="grow">${esc(r.name)}</span><span class="muted">vergeben</span></div>` : `<button class="sec" style="width:100%;margin-bottom:6px;text-align:left" onclick="oyClaim('${r.id}')">${esc(r.name)}</button>`).join('') || '<div class="empty">Noch keine Namen eingetragen.</div>';
+  if (S.prep && S.prep.mine && !S.game) return head + `<div class="mhead"><h2>Du bist dran, ${esc(me.name)}</h2></div>
+  <div class="card"><h3 style="margin-top:0">${esc(S.prep.title || 'Dein Spiel')}</h3><p class="muted" style="margin:0 0 10px">Die anderen sehen dein Spiel gleich auf der Bühne. ${S.prep.quiz ? 'Du steuerst es von diesem Handy.' : 'Wenn du Hilfsmittel brauchst, steuerst du sie von diesem Handy. Sonst läuft dein Spiel ohne Technik.'}</p>
+  <button style="width:100%" onclick="oyBegin('${S.prep.quiz ? 'quiz' : 'free'}')">${S.prep.quiz ? '▶ Spiel leiten' : 'Hilfsmittel nutzen'}</button>
+  ${S.prep.quiz ? `<p class="muted" style="text-align:center;margin:10px 0 0"><a href="#" onclick="OY.pick=!OY.pick;oyPaint();return false">Anderes Quiz von diesem Handy wählen</a></p>
+  ${OY.pick ? (quizzes().filter(x => !x.hidden && x.questions.length).map(x => `<button class="sec" style="width:100%;margin-top:6px;text-align:left" onclick="oyBegin('pick','${x.id}')">${esc(x.name)} · ${x.questions.length} Fragen</button>`).join('') || '<p class="muted">Du hast noch kein eigenes Quiz.</p>') : ''}` : ''}</div>`;
+  if (S.game && S.game.mine) return head + `<div class="mhead"><h2>Du bist dran, ${esc(me.name)}</h2></div>
+  <div class="card"><h3 style="margin-top:0">${esc(S.game.title || 'Dein Spiel')}</h3><p class="muted" style="margin:0 0 10px">Die anderen sehen dein Spiel jetzt auf der Bühne. Du steuerst es von diesem Handy.</p>
+  <button style="width:100%" onclick="oyLead()">▶ Spiel leiten</button>
+  <p class="muted" style="text-align:center;margin:10px 0 0"><a href="#" onclick="OY.pick=!OY.pick;oyPaint();return false">Anderes Quiz von diesem Handy wählen</a></p>
+  ${OY.pick ? (quizzes().filter(x => !x.hidden && x.questions.length).map(x => `<button class="sec" style="width:100%;margin-top:6px;text-align:left" onclick="oyLeadGo('${x.id}')">${esc(x.name)} · ${x.questions.length} Fragen</button>`).join('') || '<p class="muted">Du hast noch kein eigenes Quiz.</p>') : ''}</div>`;
   return head + `<div class="mhead"><h2>Hallo ${esc(me.name)}</h2></div>
   <div class="card"><h3 style="margin-top:0">Bereite ein Spiel vor</h3><p class="muted" style="margin-top:0">Jeder leitet in dieser Olympiade genau ein Spiel. Dafür bekommst du in diesem Spiel keine Punkte.</p>
   <h3>Worauf du achten solltest</h3><ul class="rules"><li>Alles ist erlaubt: Geschicklichkeit, Glück, Kartenspiel, Quiz und mehr</li><li>Es braucht klare erste drei Plätze</li><li>Überlege dir ein Stechen für den Gleichstand</li></ul></div>
@@ -2257,7 +2319,7 @@ function rankList(o) {
 
 /* ============ Austragung: Ansichten ============ */
 function viewRun(o) {
-  if (o.room) setTimeout(() => olyConnect(o), 0);
+  if (o.room) setTimeout(() => { olyConnect(o); olySync(o); }, 0);
   const head = `
   <a class="back" href="#/o/${o.id}/details">‹ Zur Olympiade</a>
   <div class="row"><img class="hdrlogo" src="${LOGO}" alt=""><h2 class="grow" style="font-size:20px">${esc(o.name || 'Ohne Namen')}</h2><span class="badge">${statusLabel(o.status)}</span></div>`;
@@ -2364,7 +2426,7 @@ function runGame(o) {
       <div class="gtitle">${esc(g.title)}</div>
       <div>Spielleiter: <b>${esc(owner.name)}</b></div>
     </div>
-    ${g.quizId && getQuiz(g.quizId) ? `<div class="card"><h2 style="margin-top:0">Quiz von ${esc(owner.name)}</h2><p class="muted" style="margin:0 0 10px">${getQuiz(g.quizId).questions.length} Fragen. ${esc(owner.name)} stellt die Fragen, ${esc(owner.name)} bekommt in diesem Spiel keine Punkte.</p><a class="btnlink" style="display:block;text-align:center" href="#/quizrun/${g.quizId}">▶ Quiz starten</a></div>` : ''}
+    ${g.quizId && getQuiz(g.quizId) ? `<div class="card"><h2 style="margin-top:0">Quiz von ${esc(owner.name)}</h2><p class="muted" style="margin:0 0 10px">${getQuiz(g.quizId).questions.length} Fragen. ${esc(owner.name)} stellt die Fragen, ${esc(owner.name)} bekommt in diesem Spiel keine Punkte.</p>${olyGameBtn(o, g, owner)}<p class="muted" style="margin:10px 0 0;text-align:center"><a href="#/quizrun/${g.quizId}">Reserve: Steuerung auf diesem Gerät</a></p></div>` : ''}
     <div class="card"><div class="mhead2" style="margin:0;cursor:pointer" onclick="TOOLopen=!TOOLopen;rr()"><h2 style="margin:0">Werkzeuge</h2><span class="tg${TOOLopen ? ' open' : ''}">${TOOLopen ? 'Zuklappen ▴' : 'Öffnen ▾'}</span></div>
       <div class="mgrid" style="margin:12px 0 0;${TOOLopen ? '' : 'display:none'}">
         <a class="mt" style="min-height:84px" href="#/o/${o.id}/w/timer"><span class="mic">⏲️</span><b>Timer</b></a>
@@ -2437,12 +2499,12 @@ function saveResult(gid) {
   const r = { 1: resDraft[1], 2: resDraft[2], 3: resDraft[3] };
   if (!r[1] || !r[2] || !r[3]) { toast('Bitte Platz 1, 2 und 3 auswählen'); return; }
   if (new Set([r[1], r[2], r[3]]).size < 3) { toast('Jede Person nur einmal'); return; }
-  g.result = r; resDraft.gid = null; g.state = 'played'; o.current = null; save(); render(); window.scrollTo(0, 0);
+  g.result = r; resDraft.gid = null; g.state = 'played'; o.current = null; save(); if (o.room) { olyGameEnd(); olySync(o); } render(); window.scrollTo(0, 0);
 }
 async function postponeCurrent(gid) {
   const o = cur(), g = gById(o, gid);
   if (!await ask({ title: 'Spiel zurückstellen?', text: 'Es kann später wieder aufgenommen werden.', ok: 'Zurückstellen', cancel: 'Abbrechen' })) return;
-  g.state = 'postponed'; g.no = null; o.current = null; o.counter = Math.max(0, o.counter - 1); save(); render();
+  g.state = 'postponed'; g.no = null; o.current = null; o.counter = Math.max(0, o.counter - 1); save(); if (o.room) { olyGameEnd(); olySync(o); } render();
 }
 async function pauseOly() {
   const o = cur(); if (!await ask({ icon: '⏸', title: 'Olympiade pausieren?', text: 'Der Spielstand bleibt gespeichert. Du kannst später mit einem neuen Termin weitermachen.', ok: 'Pausieren', cancel: 'Zurück zur Olympiade' })) return;
